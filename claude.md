@@ -200,6 +200,7 @@ LUCIA_PEPPER=...
 
 | MCP | Uso | Cuándo usar |
 |-----|-----|-------------|
+| **shadcn** | Componentes UI, patrones, bloques | **SIEMPRE** antes de crear/modificar componentes UI |
 | **Context7** | Documentación actualizada de librerías | SIEMPRE antes de implementar con Lucia, Drizzle, Hono, TanStack Query, Gemini |
 | **Postgres** | Queries SQL de solo lectura | Explorar datos, verificar schemas, debugging |
 | **GCloud** | CLI Google Cloud Platform | Cloud SQL, config southamerica-west1-b |
@@ -207,11 +208,41 @@ LUCIA_PEPPER=...
 | **GitHub** | PRs, issues, branches | Crear PRs, revisar código, gestión de repo |
 | **Sequential Thinking** | Razonamiento paso a paso | Problemas complejos, arquitectura, debugging |
 
+### MCP shadcn (OBLIGATORIO PARA UI)
+
+**SIEMPRE usar el MCP shadcn antes de crear componentes UI:**
+
+```
+mcp__shadcn__getComponents()     # Lista todos los componentes disponibles
+mcp__shadcn__getComponent("X")   # Obtiene código, ejemplos y patrones de X
+```
+
+**Categorías disponibles:**
+- `components` - Componentes base (Button, Card, Dialog, Input, Table, etc.)
+- `blocks` - Bloques completos (Dashboard, Auth, Settings, etc.)
+- `charts` - Gráficos con Recharts
+- `patterns` - Patrones de diseño comunes
+- `hooks` - Hooks útiles para UI
+- `themes` - Temas y personalización
+
+**Cuándo usar:**
+- Crear nuevo componente → `getComponent("components")` primero
+- Dashboard/página compleja → `getComponent("blocks")` para inspiración
+- Gráficos de progreso → `getComponent("charts")`
+- Animaciones/efectos → `getComponent("patterns")`
+
+**Beneficios:**
+- Código actualizado y probado
+- Consistencia con el design system
+- Accesibilidad incluida
+- Ejemplos de uso reales
+
 **Flujo recomendado:**
-1. `Context7` → Verificar docs de librería
-2. `Postgres` → Explorar datos existentes
-3. Implementar código
-4. `GitHub` → Crear PR cuando listo
+1. `shadcn` → Verificar componentes/bloques disponibles
+2. `Context7` → Verificar docs de librería
+3. `Postgres` → Explorar datos existentes
+4. Implementar código
+5. `GitHub` → Crear PR cuando listo
 
 ---
 
