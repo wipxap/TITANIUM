@@ -32,9 +32,9 @@ export function HomePage() {
         <div className="container px-4">
           <div className="max-w-3xl mx-auto text-center">
             <h1 className="text-4xl md:text-6xl font-bold text-primary text-glow mb-6">
-              Entrena como un
+              Forja tu mejor
               <br />
-              <span className="text-foreground">TITANIO</span>
+              <span className="text-foreground">VERSIÓN</span>
             </h1>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
               El gimnasio premium de Iquique. Máquinas de última generación,
