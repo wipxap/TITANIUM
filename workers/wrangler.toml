@@ -18,7 +18,7 @@ ENVIRONMENT = "development"
 [[hyperdrive]]
 binding = "HYPERDRIVE"
 id = "29c1ff612e794bf8b1c05349fb8c6d4d"
-localConnectionString = "postgresql://titanium_app:NwQpcvHB8qGoGDC3Gi6QFgVm@34.176.85.127:5432/titanium"
+localConnectionString = "postgresql://titanium_app:NwQpcvHB8qGoGDC3Gi6QFgVm@34.176.85.127:5432/titanium_app"
 
 # ============ Secrets (no commitear valores reales) ============
 # npx wrangler secret put LUCIA_PEPPER
