@@ -1,5 +1,4 @@
 import { Background, Header, Sidebar, MobileNav } from "@/components/common"
-import { Helmet } from "react-helmet-async"
 
 interface UserLayoutProps {
   children: React.ReactNode
@@ -14,9 +13,7 @@ export function UserLayout({
 }: UserLayoutProps) {
   return (
     <Background className="flex min-h-screen">
-      <Helmet>
-        <title>{title}</title>
-      </Helmet>
+      <title>{title}</title>
       <Sidebar userRole={userRole} />
       <div className="flex-1 flex flex-col">
         <Header showAuth={false} />
