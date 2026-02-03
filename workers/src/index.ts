@@ -19,7 +19,11 @@ app.use("*", logger())
 app.use(
   "*",
   cors({
-    origin: ["http://localhost:5173", "https://titaniumgym.cl"],
+    origin: [
+      "http://localhost:5173",
+      "https://titaniumgym.cl",
+      "https://titanium-bbt.pages.dev",
+    ],
     credentials: true,
   })
 )
