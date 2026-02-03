@@ -1,0 +1,5 @@
+export { MyDashboardPage } from "./MyDashboardPage"
+export { MyRoutinePage } from "./MyRoutinePage"
+export { SettingsPage } from "./SettingsPage"
+export { GenerateRoutinePage } from "./GenerateRoutinePage"
+export { ProgressPage } from "./ProgressPage"

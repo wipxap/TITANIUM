@@ -1,0 +1,6 @@
+export { HomePage } from "./HomePage"
+export { PlanesPage } from "./PlanesPage"
+export { MaquinasPage } from "./MaquinasPage"
+export { UbicacionPage } from "./UbicacionPage"
+export { ContactoPage } from "./ContactoPage"
+export { LoginPage } from "./LoginPage"

@@ -1,0 +1,33 @@
+{
+  "name": "titanium-gym-api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "tsx scripts/seed.ts",
+    "setup:gcp": "bash scripts/setup-gcp.sh"
+  },
+  "dependencies": {
+    "hono": "^4.6.0",
+    "@hono/zod-validator": "^0.4.0",
+    "drizzle-orm": "^0.38.0",
+    "postgres": "^3.4.5",
+    "lucia": "^3.2.0",
+    "@lucia-auth/adapter-drizzle": "^1.1.0",
+    "@noble/hashes": "^1.6.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241230.0",
+    "drizzle-kit": "^0.30.0",
+    "wrangler": "^3.99.0",
+    "typescript": "^5.7.0",
+    "tsx": "^4.19.0"
+  }
+}

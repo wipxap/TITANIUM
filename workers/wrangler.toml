@@ -1,0 +1,25 @@
+name = "titanium-gym-api"
+main = "src/index.ts"
+compatibility_date = "2024-12-30"
+compatibility_flags = ["nodejs_compat"]
+
+# Dev server config
+[dev]
+port = 8787
+
+[vars]
+ENVIRONMENT = "development"
+
+# ============ GCP Cloud SQL via Hyperdrive ============
+# 1. Crear instancia en GCP: gcloud sql instances create titanium-db --database-version=POSTGRES_15 --region=southamerica-west1 --tier=db-f1-micro
+# 2. Crear Hyperdrive: npx wrangler hyperdrive create titanium-db --connection-string="postgresql://USER:PASS@IP:5432/titanium"
+# 3. Copiar el ID aquí:
+
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "29c1ff612e794bf8b1c05349fb8c6d4d"
+localConnectionString = "postgresql://titanium_app:NwQpcvHB8qGoGDC3Gi6QFgVm@34.176.85.127:5432/titanium"
+
+# ============ Secrets (no commitear valores reales) ============
+# npx wrangler secret put LUCIA_PEPPER
+# npx wrangler secret put GEMINI_API_KEY

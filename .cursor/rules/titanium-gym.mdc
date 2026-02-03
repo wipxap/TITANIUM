@@ -1,0 +1,154 @@
+---
+description: Reglas de desarrollo para TITANIUM GYM APP - Gimnasio Premium Iquique
+alwaysApply: true
+---
+
+# TITANIUM GYM APP - Cursor Rules
+
+> **Documentación completa:** @docs/PLANNING.md contiene user stories, ER diagram, código componentes common/, layouts, globals.css, rutas, flujos y checklists. **Consultar en context reset o cuando necesites recordar arquitectura/UI/decisiones técnicas.**
+
+## Rol & Objetivo
+Full Stack Senior. Código RÁPIDO (<10ms queries), FÁCIL (CLI/TS intuitivo), INSTANTÁNEO (loads <100ms), COMPACTO (sin bloat), PREMIUM (UI dark red/black Titanium, shadcn/ui base + glow-red).
+
+## Principios EIPC
+- **EASY**: Minimalista, intuitivo, mobile-first
+- **INSTANT**: Feedback inmediato, optimistic updates, skeleton loaders red dim
+- **PRACTICAL**: Reutilizable (common/ + layout/), cada pixel con propósito
+- **COMPACT**: Archivos <250 líneas, tablas densas, forms mínimos, cards p-3
+
+## CERO MOCK / FULL PRODUCTION (OBLIGATORIO)
+
+**PROHIBIDO crear:**
+- Arrays/objetos hardcodeados como datos de ejemplo
+- `setTimeout()` simulando llamadas API
+- Datos estáticos que "después se reemplazan"
+- Componentes con props fijas de prueba
+- `console.log()` de debug
+- Stats/métricas inventadas en landing pages
+
+**OBLIGATORIO crear:**
+- Hooks React Query conectados a API real
+- Estados `loading` con skeletons mientras carga
+- Estados `empty` cuando no hay datos
+- Estados `error` con mensaje y retry
+- Conexiones reales desde el inicio (DB, Maps, APIs)
+
+**Flujo features con datos:**
+```
+1. Schema DB (Drizzle) → 2. Endpoint API (Hono) → 3. Hook React Query → 4. Componente con loading/empty/error
+```
+
+**Landing page:** Stats reales desde `/api/public/stats` (total máquinas, miembros activos, etc.). Si no hay backend, mostrar skeleton o "—" como valor, NUNCA números inventados.
+
+**Si no hay backend aún:** Skeleton permanente o "Próximamente", NUNCA mock data.
+
+## MOBILE FIRST (OBLIGATORIO)
+
+**Diseño:** Siempre empezar por mobile (320px-428px), luego escalar a tablet/desktop.
+
+**Tailwind obligatorio:**
+```css
+/* ✅ CORRECTO: Mobile first */
+className="p-4 md:p-6 lg:p-8"
+className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+className="text-base md:text-lg"
+
+/* ❌ INCORRECTO: Desktop first */
+className="p-8 sm:p-4"
+className="grid-cols-3 sm:grid-cols-1"
+```
+
+**Reglas UI:**
+- Touch targets mínimo 44x44px (botones, links, inputs)
+- Spacing generoso para dedos (gap-4 mínimo entre interactivos)
+- Texto legible sin zoom (min 16px body, 14px labels)
+- Forms verticales siempre (nunca inline en mobile)
+- Menú hamburguesa en mobile, nav horizontal solo en md+
+- Cards full-width en mobile, grid en md+
+- Tablas con scroll horizontal o cards en mobile
+
+**Testing obligatorio:** Probar primero en viewport 375px (iPhone SE) antes de desktop.
+
+**Prioridad breakpoints:** Mobile (default) → `md:` (768px) → `lg:` (1024px) → `xl:` (1280px)
+
+## Stack Definitivo
+| Capa | Tecnología |
+|------|------------|
+| Frontend | React 19 + Vite + TS + TanStack Query + shadcn/ui + Tailwind + React Compiler + react-helmet-async |
+| Mobile | Capacitor 8 (PWA + offline rutinas + QR check-in) |
+| Backend/DB | Cloudflare Workers + Drizzle ORM + GCP Cloud SQL southamerica-west1-b + Memorystore Redis |
+| Auth | Lucia TS (RUT username único, password, RBAC: admin/reception/user) |
+| AI Rutinas | Gemini API (prompt → JSON rutina) |
+| Realtime | Socket.io Durable Objects + FCM push |
+| SEO | react-helmet-async + JSON-LD LocalBusiness (Manuel Bulnes 1540, Iquique) |
+| Deploy | Cloudflare Pages + Workers → wrangler manual (~15s) |
+
+## Estructura UI/UX Obligatoria
+
+```
+src/
+  components/
+    ui/                  # shadcn/ui base (npx shadcn-ui add ...)
+    common/              # Reutilizables Titanium
+      Logo.tsx           # img /assets/logo.png + glow-red
+      Background.tsx     # black + red gradient subtle
+      DashboardCard.tsx  # Card p-3 bg-card glow-red skeleton-red
+      StatCard.tsx       # Icon red circle + value text-glow
+      PremiumTable.tsx   # Header bg-primary text-primary-foreground
+      FormInput.tsx      # Focus ring-primary error destructive
+      PremiumButton.tsx  # bg-primary hover-accent uppercase bold glow-red
+      Header.tsx         # Logo + UserNav red
+      Sidebar.tsx        # Nav hover:bg-primary/20 glow-red
+    layout/
+      LandingLayout.tsx  # Background + Header público
+      UserLayout.tsx     # Sidebar + Header autenticado
+      AdminLayout.tsx    # UserLayout + RBAC nav
+  styles/globals.css     # Variables red/black
+  assets/                # logo.png, fonts/oswald-variable.ttf
+```
+
+## Tema Titanium Dark Red/Black
+- **Dark mode only**
+- Primary: `#B71C1C` | Accent: `#E57373` | Background: `#000000` | Card: `#1A1A1A`
+- Font heading: Oswald bold uppercase | body: Inter
+- Efectos: `glow-red` (shadow primary/50), `text-glow`, `skeleton-red` (bg-primary/20 pulse)
+- Todos common/ usan variables Tailwind + `cn()`
+
+## Flujo Componentes
+1. `npx shadcn-ui add [component]` → ui/
+2. Custom Titanium en common/ (ej. DashboardCard = Card + glow-red + skeleton-red)
+3. Import: `@/components/common/*`
+
+## Herramientas MCP
+- `@docs`: Docs actual (Lucia, Gemini, Drizzle)
+- `@think`: Arquitectura/debug/plan DAG Titanium
+- `@gcloud`: CLI GCP (Cloud SQL + Redis southamerica-west1-b)
+- `@deploy`: wrangler Cloudflare manual primero
+- `@ui`: shadcn Titanium red/black + common/
+- `@test`: Vitest TDD (optimistic + skeletons)
+
+## Flujo Estándar
+1. `@think` estrategia + `@docs` best practices
+2. `@db` schemas Drizzle + `@gcloud` config
+3. `@ui` componentes common/ Titanium
+4. `@test` validar (login RUT, rutina Gemini JSON)
+5. `@deploy` wrangler manual → Pages + Workers
+
+## Secrets (.env OBLIGATORIO)
+NUNCA exponer credenciales. Proponer updates a `.env`:
+
+```env
+DATABASE_URL=postgresql://...
+REDIS_URL=redis://...
+GEMINI_API_KEY=...
+GOOGLE_MAPS_API_KEY=...  # mapa Manuel Bulnes 1540 Iquique
+WEBPAY_COMMERCE_CODE=...
+WEBPAY_API_KEY=...
+LUCIA_PEPPER=...
+```
+
+## Deploy Manual (RÁPIDO)
+```bash
+npm run build && npx wrangler pages deploy dist --project-name=titanium-gym
+git commit -m "feat(titanium): msg" && git push
+```

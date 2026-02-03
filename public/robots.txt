@@ -1,0 +1,22 @@
+# Titanium Gym Iquique - robots.txt
+# https://titaniumgym.cl
+
+User-agent: *
+Allow: /
+
+# Public pages
+Allow: /
+Allow: /planes
+Allow: /maquinas
+Allow: /ubicacion
+Allow: /contacto
+Allow: /login
+
+# Disallow authenticated/private pages
+Disallow: /my/
+Disallow: /admin/
+Disallow: /reception/
+Disallow: /settings
+
+# Sitemap
+Sitemap: https://titaniumgym.cl/sitemap.xml
