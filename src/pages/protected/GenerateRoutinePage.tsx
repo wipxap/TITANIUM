@@ -9,7 +9,6 @@ import {
   Sparkles,
   Target,
   Calendar,
-  Clock,
   Dumbbell,
   ArrowRight,
   ArrowLeft,

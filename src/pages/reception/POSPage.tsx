@@ -4,13 +4,6 @@ import { DashboardCard, PremiumButton } from "@/components/common"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
   Search,
   ShoppingCart,
   CreditCard,

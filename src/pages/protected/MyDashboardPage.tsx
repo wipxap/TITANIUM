@@ -1,7 +1,7 @@
 import { UserLayout } from "@/components/layout"
 import { DashboardCard, StatCard, PremiumButton, QRCheckinModal } from "@/components/common"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Dumbbell, Calendar, TrendingUp, AlertCircle, Sparkles, CreditCard } from "lucide-react"
+import { Dumbbell, Calendar, TrendingUp, Sparkles, CreditCard } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useAuth, useCheckins, useSubscription, useRoutines, useProgress } from "@/hooks"
 
@@ -15,19 +15,6 @@ function StatCardSkeleton() {
           <Skeleton className="h-8 w-16 skeleton-red" />
         </div>
       </div>
-    </div>
-  )
-}
-
-function ActivitySkeleton() {
-  return (
-    <div className="space-y-3">
-      {[1, 2, 3, 4].map((i) => (
-        <div key={i} className="flex justify-between items-center py-2 border-b border-border">
-          <Skeleton className="h-4 w-20 skeleton-red" />
-          <Skeleton className="h-4 w-48 skeleton-red" />
-        </div>
-      ))}
     </div>
   )
 }

@@ -10,9 +10,7 @@ import {
   Shield,
   Phone,
   Mail,
-  Calendar,
   Save,
-  AlertTriangle,
   Check,
 } from "lucide-react"
 import { useAuth, useProfile, useUpdateProfile } from "@/hooks"

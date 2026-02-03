@@ -2,7 +2,7 @@ import { Link } from "react-router-dom"
 import { UserLayout } from "@/components/layout"
 import { DashboardCard, PremiumTable, PremiumButton } from "@/components/common"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Play, Check, RotateCcw, AlertCircle, Plus, Sparkles } from "lucide-react"
+import { Play, Check, RotateCcw, AlertCircle, Sparkles } from "lucide-react"
 import { useState, useMemo } from "react"
 import { useAuth, useRoutines, useLogProgress } from "@/hooks"
 

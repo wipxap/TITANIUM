@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 
 interface DashboardCardProps {
-  title: string
+  title: React.ReactNode
   children: React.ReactNode
   loading?: boolean
   className?: string

@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { UserLayout } from "@/components/layout"
-import { DashboardCard, PremiumTable, PremiumButton } from "@/components/common"
+import { DashboardCard, PremiumTable } from "@/components/common"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -17,6 +17,7 @@ import { formatRut } from "@/lib/utils"
 const roleLabels = {
   admin: { label: "Admin", variant: "destructive" as const, icon: Shield },
   reception: { label: "Recepción", variant: "secondary" as const, icon: UserCheck },
+  instructor: { label: "Instructor", variant: "default" as const, icon: UserCheck },
   user: { label: "Usuario", variant: "outline" as const, icon: User },
 }
 

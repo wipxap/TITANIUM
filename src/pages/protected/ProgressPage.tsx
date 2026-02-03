@@ -1,7 +1,6 @@
 import { useMemo } from "react"
 import { UserLayout } from "@/components/layout"
 import { DashboardCard, PremiumButton, PremiumTable } from "@/components/common"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import {
   LineChart,
@@ -20,19 +19,9 @@ import {
   Calendar,
   Trophy,
   Target,
-  ArrowUp,
-  ArrowDown,
 } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useAuth, useProgress, useCheckins } from "@/hooks"
-
-function ChartSkeleton() {
-  return (
-    <div className="h-64 flex items-center justify-center">
-      <Skeleton className="h-full w-full skeleton-red rounded-lg" />
-    </div>
-  )
-}
 
 export function ProgressPage() {
   const { user } = useAuth()

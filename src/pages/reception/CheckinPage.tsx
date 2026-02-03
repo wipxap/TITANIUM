@@ -21,15 +21,13 @@ import {
   useCheckout,
   useTodayCheckins,
 } from "@/hooks"
-import { formatRut } from "@/lib/utils"
-
 export function CheckinPage() {
   const { user } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
 
   const { data: searchResults } = useSearchUsers(searchQuery)
-  const { data: userDetails, isLoading: loadingUser } = useUserForCheckin(selectedUserId || "")
+  const { data: userDetails } = useUserForCheckin(selectedUserId || "")
   const { data: todayData, isLoading: loadingToday } = useTodayCheckins()
 
   const checkin = useReceptionCheckin()
