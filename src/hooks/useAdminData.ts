@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 import { adminApi } from "@/lib/api"
 import type { Machine, Plan } from "@/lib/api"
 
@@ -25,6 +26,10 @@ export function useUpdateUserRole() {
       adminApi.updateUserRole(id, role),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] })
+      toast.success("Rol actualizado")
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al actualizar rol")
     },
   })
 }
@@ -44,6 +49,10 @@ export function useCreateMachine() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "machines"] })
       queryClient.invalidateQueries({ queryKey: ["public", "machines"] })
+      toast.success("Máquina creada")
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al crear máquina")
     },
   })
 }
@@ -57,6 +66,10 @@ export function useUpdateMachine() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "machines"] })
       queryClient.invalidateQueries({ queryKey: ["public", "machines"] })
+      toast.success("Máquina actualizada")
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al actualizar máquina")
     },
   })
 }
@@ -69,6 +82,10 @@ export function useDeleteMachine() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "machines"] })
       queryClient.invalidateQueries({ queryKey: ["public", "machines"] })
+      toast.success("Máquina eliminada")
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al eliminar máquina")
     },
   })
 }
@@ -88,6 +105,10 @@ export function useCreatePlan() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "plans"] })
       queryClient.invalidateQueries({ queryKey: ["public", "plans"] })
+      toast.success("Plan creado")
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al crear plan")
     },
   })
 }
@@ -101,6 +122,10 @@ export function useUpdatePlan() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "plans"] })
       queryClient.invalidateQueries({ queryKey: ["public", "plans"] })
+      toast.success("Plan actualizado")
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al actualizar plan")
     },
   })
 }
@@ -113,6 +138,10 @@ export function useDeletePlan() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "plans"] })
       queryClient.invalidateQueries({ queryKey: ["public", "plans"] })
+      toast.success("Plan eliminado")
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al eliminar plan")
     },
   })
 }

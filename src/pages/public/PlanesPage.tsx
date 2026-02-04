@@ -2,7 +2,8 @@ import { LandingLayout } from "@/components/layout"
 import { DashboardCard, PremiumButton } from "@/components/common"
 import { LocalBusinessSchema } from "@/components/seo"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Check, AlertCircle } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Check, AlertCircle, Clock, Calendar, Ticket } from "lucide-react"
 import { Link } from "react-router-dom"
 import { usePlans } from "@/hooks"
 
@@ -109,11 +110,19 @@ export function PlanesPage() {
                       <h3 className="text-2xl font-bold text-primary mb-2">
                         {plan.name}
                       </h3>
+                      {plan.isDailyPass && (
+                        <Badge variant="secondary" className="mb-2">
+                          <Ticket className="h-3 w-3 mr-1" />
+                          Pase Diario
+                        </Badge>
+                      )}
                       <div className="flex items-baseline justify-center gap-1">
                         <span className="text-4xl font-bold">
                           ${formatPrice(plan.priceClp)}
                         </span>
-                        <span className="text-muted-foreground">/mes</span>
+                        <span className="text-muted-foreground">
+                          /{plan.isDailyPass ? "día" : "mes"}
+                        </span>
                       </div>
                       {plan.description && (
                         <p className="text-sm text-muted-foreground mt-2">
@@ -121,6 +130,27 @@ export function PlanesPage() {
                         </p>
                       )}
                     </div>
+
+                    {/* Time restrictions */}
+                    {plan.allowedTimeStart && plan.allowedTimeEnd && (
+                      <div className="flex items-center gap-2 mb-4 p-2 bg-muted/50 rounded-lg text-sm">
+                        <Clock className="h-4 w-4 text-primary shrink-0" />
+                        <span className="text-muted-foreground">
+                          Horario: {plan.allowedTimeStart} - {plan.allowedTimeEnd}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Limited sessions */}
+                    {plan.totalSessions && (
+                      <div className="flex items-center gap-2 mb-4 p-2 bg-muted/50 rounded-lg text-sm">
+                        <Calendar className="h-4 w-4 text-primary shrink-0" />
+                        <span className="text-muted-foreground">
+                          {plan.totalSessions} sesiones incluidas
+                        </span>
+                      </div>
+                    )}
+
                     <ul className="space-y-3 mb-6">
                       {plan.features?.map((feature, i) => (
                         <li key={i} className="flex items-start gap-2">

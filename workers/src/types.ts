@@ -1,11 +1,7 @@
 import type { Database } from "./db"
 import type { Lucia, Session, User } from "lucia"
 
-// Hyperdrive binding type
-interface Hyperdrive {
-  connectionString: string
-}
-
+// Use Cloudflare's global Hyperdrive type
 export interface Env {
   HYPERDRIVE: Hyperdrive
   GEMINI_API_KEY?: string

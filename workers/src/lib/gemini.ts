@@ -154,7 +154,13 @@ export async function generateRoutineWithGemini(
     throw new Error("Error al generar rutina con IA")
   }
 
-  const data = await response.json()
+  const data = (await response.json()) as {
+    candidates?: Array<{
+      content?: {
+        parts?: Array<{ text?: string }>
+      }
+    }>
+  }
 
   // Extract the generated text
   const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text

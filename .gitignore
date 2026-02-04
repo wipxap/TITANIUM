@@ -43,3 +43,13 @@ coverage
 # Misc
 *.pem
 .cache
+
+# Capacitor native platforms (regenerable)
+ios/
+android/
+*.xcodeproj
+*.xcworkspace
+*.gradle
+*.apk
+*.aab
+*.ipa

@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 import { userApi, routinesApi } from "@/lib/api"
 import type { Profile, GenerateRoutineInput } from "@/lib/api"
 
@@ -16,6 +17,10 @@ export function useUpdateProfile() {
     mutationFn: (data: Partial<Profile>) => userApi.updateProfile(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user", "profile"] })
+      toast.success("Perfil actualizado")
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al actualizar perfil")
     },
   })
 }
@@ -41,6 +46,10 @@ export function useCheckin() {
     mutationFn: userApi.checkin,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user", "checkins"] })
+      toast.success("Check-in registrado")
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al registrar check-in")
     },
   })
 }
@@ -74,6 +83,10 @@ export function useLogProgress() {
     mutationFn: userApi.logProgress,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user", "progress"] })
+      toast.success("Progreso registrado")
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al registrar progreso")
     },
   })
 }
@@ -85,6 +98,10 @@ export function useGenerateRoutine() {
     mutationFn: (data: GenerateRoutineInput) => routinesApi.generate(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user", "routines"] })
+      toast.success("¡Rutina generada con IA!")
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al generar rutina")
     },
   })
 }
@@ -96,6 +113,10 @@ export function useActivateRoutine() {
     mutationFn: (id: string) => routinesApi.activate(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user", "routines"] })
+      toast.success("Rutina activada")
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al activar rutina")
     },
   })
 }
@@ -107,6 +128,10 @@ export function useDeleteRoutine() {
     mutationFn: (id: string) => routinesApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user", "routines"] })
+      toast.success("Rutina eliminada")
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al eliminar rutina")
     },
   })
 }

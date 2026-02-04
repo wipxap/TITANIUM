@@ -94,6 +94,19 @@ export const plans = pgTable("plans", {
   features: jsonb("features").$type<string[]>(),
   isActive: boolean("is_active").notNull().default(true),
   sortOrder: integer("sort_order").notNull().default(0),
+  // Restricciones horarias (formato HH:MM, ej: "06:00", "22:00")
+  allowedTimeStart: varchar("allowed_time_start", { length: 5 }),
+  allowedTimeEnd: varchar("allowed_time_end", { length: 5 }),
+  // Pases diarios
+  isDailyPass: boolean("is_daily_pass").notNull().default(false),
+  // Sesiones limitadas (para clases)
+  totalSessions: integer("total_sessions"), // null = ilimitado
+  sessionsPerPeriod: integer("sessions_per_period"), // sesiones por período de renovación
+  // Límite de compras por usuario
+  maxPurchasesPerUser: integer("max_purchases_per_user"), // null = sin límite
+  // Planes familiares
+  isFamilyPlan: boolean("is_family_plan").notNull().default(false),
+  maxBeneficiaries: integer("max_beneficiaries"), // null si no es plan familiar
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
@@ -112,7 +125,70 @@ export const subscriptions = pgTable("subscriptions", {
   paidAmount: integer("paid_amount"),
   paymentMethod: paymentMethodEnum("payment_method"),
   transactionId: varchar("transaction_id", { length: 100 }),
+  // Sesiones limitadas
+  sessionsRemaining: integer("sessions_remaining"), // null si el plan no tiene límite
+  sessionsResetDate: timestamp("sessions_reset_date"),
+  // Sistema de lealtad
+  loyaltyDaysAccumulated: integer("loyalty_days_accumulated").default(0),
+  discountApplied: integer("discount_applied"), // porcentaje de descuento aplicado
   createdAt: timestamp("created_at").notNull().defaultNow(),
+})
+
+// ============ LOYALTY LEVELS ============
+
+export const loyaltyLevels = pgTable("loyalty_levels", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 50 }).notNull(), // Bronce, Plata, Oro, Titanium
+  minDays: integer("min_days").notNull(), // Días mínimos acumulados para alcanzar este nivel
+  discountPercent: integer("discount_percent").notNull(), // Porcentaje de descuento (ej: 5, 10, 15)
+  color: varchar("color", { length: 7 }), // Color hex para UI (ej: #CD7F32)
+  benefits: jsonb("benefits").$type<string[]>(), // Lista de beneficios adicionales
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+})
+
+// ============ FAMILY CODES ============
+
+export const familyCodes = pgTable("family_codes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  code: varchar("code", { length: 20 }).notNull().unique(), // Código único para canjear
+  subscriptionId: uuid("subscription_id")
+    .notNull()
+    .references(() => subscriptions.id, { onDelete: "cascade" }),
+  beneficiaryProfileId: uuid("beneficiary_profile_id")
+    .references(() => profiles.id), // null hasta que se canjee
+  isUsed: boolean("is_used").notNull().default(false),
+  usedAt: timestamp("used_at"),
+  expiresAt: timestamp("expires_at"), // null = no expira
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+})
+
+// ============ CONTRACTS ============
+
+export const contracts = pgTable("contracts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 100 }).notNull(),
+  content: text("content").notNull(), // HTML/Markdown del contrato
+  version: varchar("version", { length: 20 }).notNull().default("1.0"),
+  isActive: boolean("is_active").notNull().default(true),
+  requiresSignature: boolean("requires_signature").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+})
+
+export const signedContracts = pgTable("signed_contracts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  contractId: uuid("contract_id")
+    .notNull()
+    .references(() => contracts.id),
+  profileId: uuid("profile_id")
+    .notNull()
+    .references(() => profiles.id, { onDelete: "cascade" }),
+  subscriptionId: uuid("subscription_id")
+    .references(() => subscriptions.id), // Asociado a una subscripción específica
+  signatureData: text("signature_data"), // Base64 de la firma
+  signedAt: timestamp("signed_at").notNull().defaultNow(),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
 })
 
 // ============ MACHINES ============

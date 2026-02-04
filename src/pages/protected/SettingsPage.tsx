@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 import { useAuth, useProfile, useUpdateProfile } from "@/hooks"
 import { formatRut } from "@/lib/utils"
+import { profileSchema } from "@/lib/validations"
 
 function ProfileSkeleton() {
   return (
@@ -44,6 +45,7 @@ export function SettingsPage() {
   })
   const [formInitialized, setFormInitialized] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   // Initialize form when profile loads
   if (profile && !formInitialized) {
@@ -56,12 +58,23 @@ export function SettingsPage() {
   }
 
   const handleSave = async () => {
+    setErrors({})
+    const result = profileSchema.safeParse(formData)
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {}
+      result.error.issues.forEach((issue) => {
+        if (issue.path[0]) fieldErrors[issue.path[0] as string] = issue.message
+      })
+      setErrors(fieldErrors)
+      return
+    }
+
     try {
       await updateProfile.mutateAsync(formData)
       setSaveSuccess(true)
       setTimeout(() => setSaveSuccess(false), 3000)
-    } catch (error) {
-      console.error("Error saving profile:", error)
+    } catch {
+      // Error handled by toast in hook
     }
   }
 
@@ -137,24 +150,32 @@ export function SettingsPage() {
                   <Input
                     id="firstName"
                     value={formData.firstName}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setFormData({ ...formData, firstName: e.target.value })
-                    }
+                      if (errors.firstName) setErrors((prev) => ({ ...prev, firstName: "" }))
+                    }}
                     placeholder="Tu nombre"
                     className="bg-background"
                   />
+                  {errors.firstName && (
+                    <p className="text-destructive text-sm">{errors.firstName}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lastName">Apellido</Label>
                   <Input
                     id="lastName"
                     value={formData.lastName}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setFormData({ ...formData, lastName: e.target.value })
-                    }
+                      if (errors.lastName) setErrors((prev) => ({ ...prev, lastName: "" }))
+                    }}
                     placeholder="Tu apellido"
                     className="bg-background"
                   />
+                  {errors.lastName && (
+                    <p className="text-destructive text-sm">{errors.lastName}</p>
+                  )}
                 </div>
               </div>
 

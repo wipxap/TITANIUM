@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
+import { toast } from "sonner"
 import { authApi, getAuthToken } from "@/lib/api"
 import type { LoginData, RegisterData } from "@/lib/api"
 
@@ -19,7 +20,11 @@ export function useAuth() {
     mutationFn: (data: LoginData) => authApi.login(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["auth"] })
+      toast.success("¡Bienvenido a Titanium!")
       navigate("/my")
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al iniciar sesión")
     },
   })
 
@@ -27,7 +32,11 @@ export function useAuth() {
     mutationFn: (data: RegisterData) => authApi.register(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["auth"] })
+      toast.success("¡Cuenta creada exitosamente!")
       navigate("/my")
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al crear cuenta")
     },
   })
 
@@ -35,6 +44,7 @@ export function useAuth() {
     mutationFn: authApi.logout,
     onSuccess: () => {
       queryClient.clear()
+      toast.success("Sesión cerrada")
       navigate("/login")
     },
   })

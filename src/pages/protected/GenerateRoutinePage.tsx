@@ -17,6 +17,8 @@ import {
 } from "lucide-react"
 import { useAuth, useGenerateRoutine } from "@/hooks"
 import { cn } from "@/lib/utils"
+import { generateRoutineSchema } from "@/lib/validations"
+import { toast } from "sonner"
 
 const experienceLevels = [
   {
@@ -125,26 +127,32 @@ export function GenerateRoutinePage() {
   }
 
   const handleGenerate = async () => {
-    setStep("generating")
-
     const goalsText = formData.selectedGoals
       .map((g) => goalOptions.find((o) => o.value === g)?.label)
       .join(", ")
 
-    try {
-      await generateRoutine.mutateAsync({
-        goals: goalsText + (formData.goals ? `. ${formData.goals}` : ""),
-        experienceLevel: formData.experienceLevel as "beginner" | "intermediate" | "advanced",
-        daysPerWeek: formData.daysPerWeek,
-        sessionDuration: formData.sessionDuration,
-        focusAreas: formData.focusAreas,
-      })
+    const payload = {
+      goals: goalsText + (formData.goals ? `. ${formData.goals}` : ""),
+      experienceLevel: formData.experienceLevel as "beginner" | "intermediate" | "advanced",
+      daysPerWeek: formData.daysPerWeek,
+      sessionDuration: formData.sessionDuration,
+      focusAreas: formData.focusAreas,
+    }
 
-      // Navigate to routine page
+    const result = generateRoutineSchema.safeParse(payload)
+    if (!result.success) {
+      const firstError = result.error.issues[0]?.message || "Datos inválidos"
+      toast.error(firstError)
+      return
+    }
+
+    setStep("generating")
+
+    try {
+      await generateRoutine.mutateAsync(payload)
       navigate("/my/routine")
-    } catch (error) {
-      console.error("Error generating routine:", error)
-      setStep("focus") // Go back to last step
+    } catch {
+      setStep("focus")
     }
   }
 

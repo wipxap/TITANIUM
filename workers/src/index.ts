@@ -11,6 +11,9 @@ import userRoutes from "./routes/user"
 import adminRoutes from "./routes/admin"
 import receptionRoutes from "./routes/reception"
 import routinesRoutes from "./routes/routines"
+import loyaltyRoutes from "./routes/loyalty"
+import familyRoutes from "./routes/family"
+import contractsRoutes from "./routes/contracts"
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -49,6 +52,9 @@ app.route("/user", userRoutes)
 app.route("/admin", adminRoutes)
 app.route("/reception", receptionRoutes)
 app.route("/routines", routinesRoutes)
+app.route("/loyalty", loyaltyRoutes)
+app.route("/family", familyRoutes)
+app.route("/contracts", contractsRoutes)
 
 // 404 handler
 app.notFound((c) => {

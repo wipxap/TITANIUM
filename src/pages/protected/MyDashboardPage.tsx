@@ -1,9 +1,9 @@
 import { UserLayout } from "@/components/layout"
-import { DashboardCard, StatCard, PremiumButton, QRCheckinModal } from "@/components/common"
+import { DashboardCard, StatCard, PremiumButton, QRCheckinModal, MembershipCard, LoyaltyCard } from "@/components/common"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Dumbbell, Calendar, TrendingUp, Sparkles, CreditCard } from "lucide-react"
+import { Dumbbell, Calendar, TrendingUp, Sparkles } from "lucide-react"
 import { Link } from "react-router-dom"
-import { useAuth, useCheckins, useSubscription, useRoutines, useProgress } from "@/hooks"
+import { useAuth, useCheckins, useSubscription, useRoutines, useProgress, useMyLoyaltyLevel } from "@/hooks"
 
 function StatCardSkeleton() {
   return (
@@ -25,6 +25,7 @@ export function MyDashboardPage() {
   const { data: subscriptionData, isLoading: subLoading } = useSubscription()
   const { data: routinesData, isLoading: routinesLoading } = useRoutines()
   const { data: progressData, isLoading: progressLoading } = useProgress()
+  const { data: loyaltyData, isLoading: loyaltyLoading } = useMyLoyaltyLevel()
 
   const checkins = checkinsData?.checkins || []
   const subscription = subscriptionData?.subscription
@@ -87,23 +88,18 @@ export function MyDashboardPage() {
           {!isAdmin && !isReception && <QRCheckinModal />}
         </div>
 
-        {/* No subscription banner for regular users */}
-        {!isAdmin && !isReception && !subLoading && !subscription && (
-          <div className="bg-gradient-to-r from-primary/20 to-primary/10 border border-primary/30 rounded-lg p-4 glow-red">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-              <div className="flex-1">
-                <h3 className="font-bold text-lg flex items-center gap-2">
-                  <CreditCard className="h-5 w-5 text-primary" />
-                  ¡Activa tu membresía!
-                </h3>
-                <p className="text-muted-foreground text-sm mt-1">
-                  Adquiere un plan para acceder a todas las funcionalidades del gym
-                </p>
-              </div>
-              <Link to="/planes">
-                <PremiumButton>Ver Planes</PremiumButton>
-              </Link>
-            </div>
+        {/* Membership Card for regular users */}
+        {!isAdmin && !isReception && (
+          <div className="grid md:grid-cols-2 gap-4">
+            <MembershipCard
+              subscription={subscription}
+              loading={subLoading}
+              showRenewButton={true}
+            />
+            <LoyaltyCard
+              loyaltyData={loyaltyData}
+              loading={loyaltyLoading}
+            />
           </div>
         )}
 

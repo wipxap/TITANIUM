@@ -28,7 +28,7 @@ declare module "lucia" {
     DatabaseUserAttributes: {
       rut: string
       email: string | null
-      role: "admin" | "reception" | "user"
+      role: "admin" | "reception" | "instructor" | "user"
     }
   }
 }

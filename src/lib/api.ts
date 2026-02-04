@@ -107,6 +107,19 @@ export interface Plan {
   durationDays: number
   features: string[] | null
   sortOrder: number
+  // Restricciones horarias
+  allowedTimeStart: string | null
+  allowedTimeEnd: string | null
+  // Pases diarios
+  isDailyPass: boolean
+  // Sesiones limitadas
+  totalSessions: number | null
+  sessionsPerPeriod: number | null
+  // Límite de compras
+  maxPurchasesPerUser: number | null
+  // Planes familiares
+  isFamilyPlan: boolean
+  maxBeneficiaries: number | null
 }
 
 export interface Machine {
@@ -315,6 +328,32 @@ export interface TodayCheckin {
   }
 }
 
+export interface UserSubscriptionDetails {
+  subscription: (Subscription & {
+    paidAmount: number | null
+    paymentMethod: string | null
+    plan: Plan
+  }) | null
+  daysRemaining: number
+  isExpiringSoon: boolean
+  isExpired: boolean
+  canRenew: boolean
+}
+
+export interface RenewSubscriptionData {
+  userId: string
+  planId: string
+  paymentMethod: "cash" | "webpay" | "transfer"
+  notes?: string
+}
+
+export interface RenewSubscriptionResponse {
+  subscription: Subscription
+  sale: any
+  isRenewal: boolean
+  message: string
+}
+
 export const receptionApi = {
   searchUsers: (query: string) =>
     apiFetch<{ users: SearchUser[] }>(`/reception/search?q=${encodeURIComponent(query)}`),
@@ -327,6 +366,15 @@ export const receptionApi = {
       activeCheckin: Checkin | null
       canCheckin: boolean
     }>(`/reception/user/${id}`),
+
+  getUserSubscription: (userId: string) =>
+    apiFetch<UserSubscriptionDetails>(`/reception/user/${userId}/subscription`),
+
+  renewSubscription: (data: RenewSubscriptionData) =>
+    apiFetch<RenewSubscriptionResponse>("/reception/renew", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 
   checkin: (userId: string) =>
     apiFetch<{ checkin: Checkin; message: string }>("/reception/checkin", {
@@ -353,7 +401,7 @@ export const receptionApi = {
   createSale: (data: {
     userId?: string
     items: Array<{ type: "product" | "plan"; id: string; quantity: number }>
-    paymentMethod: "cash" | "card" | "transfer"
+    paymentMethod: "cash" | "webpay" | "transfer"
     notes?: string
   }) =>
     apiFetch<{ sale: any; total: number; message: string }>("/reception/sale", {
@@ -371,6 +419,171 @@ export interface GenerateRoutineInput {
   sessionDuration: number
   focusAreas?: string[]
 }
+
+// ============ LOYALTY API ============
+
+export interface LoyaltyLevel {
+  id: string
+  name: string
+  minDays: number
+  discountPercent: number
+  color: string | null
+  benefits: string[] | null
+}
+
+export interface MyLoyaltyLevel {
+  accumulatedDays: number
+  currentLevel: LoyaltyLevel | null
+  nextLevel: LoyaltyLevel | null
+  progressToNext: {
+    daysNeeded: number
+    percentComplete: number
+  } | null
+  allLevels: LoyaltyLevel[]
+}
+
+export const loyaltyApi = {
+  getLevels: () => apiFetch<{ levels: LoyaltyLevel[] }>("/loyalty/levels"),
+
+  getMyLevel: () => apiFetch<MyLoyaltyLevel>("/loyalty/my-level"),
+
+  // Admin
+  createLevel: (data: Omit<LoyaltyLevel, "id">) =>
+    apiFetch<{ level: LoyaltyLevel; message: string }>("/loyalty/admin/levels", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  updateLevel: (id: string, data: Partial<LoyaltyLevel>) =>
+    apiFetch<{ level: LoyaltyLevel; message: string }>(`/loyalty/admin/levels/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  deleteLevel: (id: string) =>
+    apiFetch<{ success: boolean; message: string }>(`/loyalty/admin/levels/${id}`, {
+      method: "DELETE",
+    }),
+}
+
+// ============ CONTRACTS API ============
+
+export interface Contract {
+  id: string
+  name: string
+  content: string
+  version: string
+  isActive: boolean
+  requiresSignature: boolean
+}
+
+export interface SignedContract {
+  id: string
+  signedAt: string
+  contract: {
+    id: string
+    name: string
+    version: string
+  }
+}
+
+export interface ContractCheckResult {
+  hasSigned: boolean
+  requiresSignature: boolean
+  contract: Contract | null
+}
+
+export const contractsApi = {
+  getActive: () => apiFetch<{ contract: Contract | null }>("/contracts/active"),
+
+  getMySigned: () =>
+    apiFetch<{ signedContracts: SignedContract[] }>("/contracts/my-signed"),
+
+  checkSigned: () => apiFetch<ContractCheckResult>("/contracts/check-signed"),
+
+  sign: (data: { contractId: string; signatureData: string; subscriptionId?: string }) =>
+    apiFetch<{ signedContract: any; message: string }>("/contracts/sign", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  // Admin
+  getAll: () => apiFetch<{ contracts: Contract[] }>("/contracts/admin"),
+
+  create: (data: { name: string; content: string; version?: string; requiresSignature?: boolean }) =>
+    apiFetch<{ contract: Contract; message: string }>("/contracts/admin", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: Partial<Contract>) =>
+    apiFetch<{ contract: Contract; message: string }>(`/contracts/admin/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  activate: (id: string) =>
+    apiFetch<{ contract: Contract; message: string }>(`/contracts/admin/${id}/activate`, {
+      method: "PUT",
+    }),
+
+  delete: (id: string) =>
+    apiFetch<{ success: boolean; message: string }>(`/contracts/admin/${id}`, {
+      method: "DELETE",
+    }),
+
+  getSignatures: (contractId: string) =>
+    apiFetch<{ signatures: Array<{ id: string; signedAt: string; ipAddress: string | null; profile: { id: string; firstName: string; lastName: string } }> }>(
+      `/contracts/admin/signatures/${contractId}`
+    ),
+}
+
+// ============ FAMILY API ============
+
+export interface FamilyCode {
+  id: string
+  code: string
+  isUsed: boolean
+  usedAt: string | null
+  expiresAt: string | null
+  beneficiaryProfile: {
+    id: string
+    firstName: string
+    lastName: string
+  } | null
+}
+
+export interface MyFamilyCodes {
+  codes: FamilyCode[]
+  maxBeneficiaries: number
+  usedCount: number
+  availableCount: number
+}
+
+export const familyApi = {
+  getMyCodes: () => apiFetch<MyFamilyCodes>("/family/my-codes"),
+
+  generateCode: () =>
+    apiFetch<{ code: FamilyCode; message: string }>("/family/generate-code", {
+      method: "POST",
+    }),
+
+  redeemCode: (code: string) =>
+    apiFetch<{ subscription: Subscription; message: string }>("/family/redeem", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
+
+  lookupCode: (code: string) =>
+    apiFetch<{
+      code: FamilyCode
+      plan: Plan
+      owner: { firstName: string; lastName: string }
+      isValid: boolean
+    }>(`/family/lookup/${code}`),
+}
+
+// ============ ROUTINES API ============
 
 export const routinesApi = {
   generate: (data: GenerateRoutineInput) =>

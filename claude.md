@@ -163,6 +163,30 @@ TITANIUM/
 
 ---
 
+## Desarrollo Local
+
+**Comando para iniciar entorno de desarrollo:**
+```bash
+./dev.sh
+```
+
+Esto inicia:
+- **Backend:** http://localhost:8787 (Cloudflare Workers con Wrangler)
+- **Frontend:** http://localhost:5173 (Vite)
+
+**Alternativa manual:**
+```bash
+# Terminal 1 - Backend
+cd workers && npm run dev
+
+# Terminal 2 - Frontend
+npm run dev
+```
+
+**IMPORTANTE:** Usar `./dev.sh` cada vez que se necesite reiniciar el entorno local.
+
+---
+
 ## Deploy (CRÍTICO)
 
 **ÚNICA forma permitida de deploy:**

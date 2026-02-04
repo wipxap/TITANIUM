@@ -1,8 +1,18 @@
 import { useState } from "react"
 import { UserLayout } from "@/components/layout"
-import { DashboardCard, PremiumButton } from "@/components/common"
+import { DashboardCard, PremiumButton, MembershipCard } from "@/components/common"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import {
   Search,
   ShoppingCart,
@@ -13,12 +23,16 @@ import {
   Minus,
   Trash2,
   Check,
+  RefreshCw,
+  AlertTriangle,
 } from "lucide-react"
 import {
   useAuth,
   useSearchUsers,
   useReceptionPlans,
   useCreateSale,
+  useUserSubscription,
+  useRenewSubscription,
 } from "@/hooks"
 
 interface CartItem {
@@ -33,14 +47,18 @@ export function POSPage() {
   const { user } = useAuth()
   const { data: plansData, isLoading: loadingPlans } = useReceptionPlans()
   const createSale = useCreateSale()
+  const renewSubscription = useRenewSubscription()
 
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const [selectedUserName, setSelectedUserName] = useState<string>("")
   const [cart, setCart] = useState<CartItem[]>([])
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "transfer">("cash")
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "webpay" | "transfer">("cash")
   const [saleSuccess, setSaleSuccess] = useState(false)
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
 
   const { data: searchResults } = useSearchUsers(searchQuery)
+  const { data: subscriptionData, isLoading: loadingSubscription } = useUserSubscription(selectedUserId || "")
 
   const plans = plansData?.plans || []
 
@@ -83,14 +101,47 @@ export function POSPage() {
   const clearCart = () => {
     setCart([])
     setSelectedUserId(null)
+    setSelectedUserName("")
     setSearchQuery("")
   }
 
+  // Check if cart has a plan (membership)
+  const hasPlanInCart = cart.some((item) => item.type === "plan")
+  const isRenewal = hasPlanInCart && subscriptionData?.subscription !== null
+
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
+
+  const handleSaleConfirm = () => {
+    if (cart.length === 0) return
+    setShowConfirmDialog(true)
+  }
 
   const handleSale = async () => {
     if (cart.length === 0) return
+    setShowConfirmDialog(false)
 
+    // Check if it's a renewal (plan in cart + existing subscription)
+    const planItem = cart.find((item) => item.type === "plan")
+    if (planItem && selectedUserId && subscriptionData?.canRenew) {
+      try {
+        await renewSubscription.mutateAsync({
+          userId: selectedUserId,
+          planId: planItem.id,
+          paymentMethod,
+        })
+
+        setSaleSuccess(true)
+        setTimeout(() => {
+          setSaleSuccess(false)
+          clearCart()
+        }, 2000)
+        return
+      } catch (error) {
+        return
+      }
+    }
+
+    // Regular sale
     try {
       await createSale.mutateAsync({
         userId: selectedUserId || undefined,
@@ -108,7 +159,7 @@ export function POSPage() {
         clearCart()
       }, 2000)
     } catch (error) {
-      console.error("Error creating sale:", error)
+      // Error handled by mutation
     }
   }
 
@@ -150,8 +201,10 @@ export function POSPage() {
                       <button
                         key={u.id}
                         onClick={() => {
+                          const fullName = `${u.profile?.firstName} ${u.profile?.lastName}`
                           setSelectedUserId(u.id)
-                          setSearchQuery(`${u.profile?.firstName} ${u.profile?.lastName}`)
+                          setSelectedUserName(fullName)
+                          setSearchQuery(fullName)
                         }}
                         className="w-full px-3 py-2 text-left hover:bg-muted/50 transition-colors text-sm"
                       >
@@ -169,6 +222,53 @@ export function POSPage() {
                 )}
               </div>
             </DashboardCard>
+
+            {/* Customer Subscription Status */}
+            {selectedUserId && (
+              <DashboardCard title="Estado de Membresía" loading={loadingSubscription}>
+                {subscriptionData?.subscription ? (
+                  <div className="space-y-3">
+                    <MembershipCard
+                      subscription={{
+                        id: subscriptionData.subscription.id,
+                        status: subscriptionData.subscription.status,
+                        startDate: subscriptionData.subscription.startDate,
+                        endDate: subscriptionData.subscription.endDate,
+                        plan: subscriptionData.subscription.plan,
+                      }}
+                      compact
+                      showRenewButton={false}
+                    />
+                    <div className="flex items-center gap-2 text-sm">
+                      {subscriptionData.isExpired ? (
+                        <Badge variant="destructive" className="gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          Membresía vencida
+                        </Badge>
+                      ) : subscriptionData.isExpiringSoon ? (
+                        <Badge variant="secondary" className="gap-1 bg-yellow-500/20 text-yellow-500 border-yellow-500/30">
+                          <AlertTriangle className="h-3 w-3" />
+                          Vence en {subscriptionData.daysRemaining} días
+                        </Badge>
+                      ) : (
+                        <Badge variant="default" className="gap-1 bg-green-500/20 text-green-500 border-green-500/30">
+                          <Check className="h-3 w-3" />
+                          {subscriptionData.daysRemaining} días restantes
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <CreditCard className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-muted-foreground text-sm">Sin membresía activa</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Selecciona un plan para activar
+                    </p>
+                  </div>
+                )}
+              </DashboardCard>
+            )}
 
             {/* Plans */}
             <DashboardCard title="Membresías" loading={loadingPlans}>
@@ -285,15 +385,15 @@ export function POSPage() {
                         <span className="text-xs">Efectivo</span>
                       </button>
                       <button
-                        onClick={() => setPaymentMethod("card")}
+                        onClick={() => setPaymentMethod("webpay")}
                         className={`p-3 border rounded-lg flex flex-col items-center gap-1 transition-all ${
-                          paymentMethod === "card"
+                          paymentMethod === "webpay"
                             ? "border-primary bg-primary/10"
                             : "border-border hover:border-primary/50"
                         }`}
                       >
                         <CreditCard className="h-5 w-5" />
-                        <span className="text-xs">Tarjeta</span>
+                        <span className="text-xs">Webpay</span>
                       </button>
                       <button
                         onClick={() => setPaymentMethod("transfer")}
@@ -309,6 +409,25 @@ export function POSPage() {
                     </div>
                   </div>
 
+                  {/* Renewal indicator */}
+                  {hasPlanInCart && selectedUserId && (
+                    <div className={`p-3 rounded-lg border ${isRenewal ? "bg-yellow-500/10 border-yellow-500/30" : "bg-green-500/10 border-green-500/30"}`}>
+                      <div className="flex items-center gap-2 text-sm">
+                        {isRenewal ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 text-yellow-500" />
+                            <span className="text-yellow-500 font-medium">Renovación de membresía</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="h-4 w-4 text-green-500" />
+                            <span className="text-green-500 font-medium">Nueva membresía</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Actions */}
                   <div className="flex gap-3">
                     <PremiumButton
@@ -319,8 +438,8 @@ export function POSPage() {
                       Cancelar
                     </PremiumButton>
                     <PremiumButton
-                      onClick={handleSale}
-                      loading={createSale.isPending}
+                      onClick={handleSaleConfirm}
+                      loading={createSale.isPending || renewSubscription.isPending}
                       className="flex-1"
                       disabled={saleSuccess}
                     >
@@ -335,7 +454,7 @@ export function POSPage() {
                     </PremiumButton>
                   </div>
 
-                  {createSale.isError && (
+                  {(createSale.isError || renewSubscription.isError) && (
                     <p className="text-destructive text-sm text-center">
                       Error al procesar la venta
                     </p>
@@ -346,6 +465,58 @@ export function POSPage() {
           </div>
         </div>
       </div>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent className="bg-card border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              {isRenewal ? (
+                <>
+                  <RefreshCw className="h-5 w-5 text-yellow-500" />
+                  Confirmar Renovación
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="h-5 w-5 text-primary" />
+                  Confirmar Venta
+                </>
+              )}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <div>
+                {selectedUserId && selectedUserName && (
+                  <p className="text-foreground">
+                    Cliente: <span className="font-medium">{selectedUserName}</span>
+                  </p>
+                )}
+                <p className="text-foreground mt-2">
+                  Total: <span className="font-bold text-primary">{formatPrice(total)}</span>
+                </p>
+                <p className="text-muted-foreground text-sm mt-1">
+                  Método de pago: {paymentMethod === "cash" ? "Efectivo" : paymentMethod === "webpay" ? "Webpay" : "Transferencia"}
+                </p>
+              </div>
+              {isRenewal && hasPlanInCart && (
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mt-2">
+                  <p className="text-yellow-500 text-sm">
+                    Se renovará la membresía existente del cliente
+                  </p>
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-border">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleSale}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              {isRenewal ? "Renovar" : "Cobrar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </UserLayout>
   )
 }

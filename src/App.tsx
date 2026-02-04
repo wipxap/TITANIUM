@@ -10,6 +10,7 @@ import {
 import { MyDashboardPage, MyRoutinePage, SettingsPage, GenerateRoutinePage, ProgressPage } from "./pages/protected"
 import { AdminUsersPage, AdminMachinesPage } from "./pages/admin"
 import { CheckinPage, POSPage } from "./pages/reception"
+import { ProtectedRoute } from "./components/common"
 
 function App() {
   return (
@@ -23,19 +24,19 @@ function App() {
       <Route path="/login" element={<LoginPage />} />
 
       {/* Protected Routes - User */}
-      <Route path="/my" element={<MyDashboardPage />} />
-      <Route path="/my/routine" element={<MyRoutinePage />} />
-      <Route path="/my/routine/generate" element={<GenerateRoutinePage />} />
-      <Route path="/my/progress" element={<ProgressPage />} />
-      <Route path="/settings" element={<SettingsPage />} />
+      <Route path="/my" element={<ProtectedRoute><MyDashboardPage /></ProtectedRoute>} />
+      <Route path="/my/routine" element={<ProtectedRoute><MyRoutinePage /></ProtectedRoute>} />
+      <Route path="/my/routine/generate" element={<ProtectedRoute><GenerateRoutinePage /></ProtectedRoute>} />
+      <Route path="/my/progress" element={<ProtectedRoute><ProgressPage /></ProtectedRoute>} />
+      <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
 
       {/* Admin Routes */}
-      <Route path="/admin/users" element={<AdminUsersPage />} />
-      <Route path="/admin/machines" element={<AdminMachinesPage />} />
+      <Route path="/admin/users" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUsersPage /></ProtectedRoute>} />
+      <Route path="/admin/machines" element={<ProtectedRoute allowedRoles={["admin"]}><AdminMachinesPage /></ProtectedRoute>} />
 
       {/* Reception Routes */}
-      <Route path="/reception/checkin" element={<CheckinPage />} />
-      <Route path="/reception/pos" element={<POSPage />} />
+      <Route path="/reception/checkin" element={<ProtectedRoute allowedRoles={["admin", "reception"]}><CheckinPage /></ProtectedRoute>} />
+      <Route path="/reception/pos" element={<ProtectedRoute allowedRoles={["admin", "reception"]}><POSPage /></ProtectedRoute>} />
 
       {/* 404 */}
       <Route path="*" element={<HomePage />} />
