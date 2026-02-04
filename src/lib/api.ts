@@ -239,6 +239,134 @@ export interface AdminUser {
   } | null
 }
 
+// ============ CASH REGISTER TYPES ============
+
+export interface CashRegister {
+  id: string
+  openedBy: string
+  closedBy: string | null
+  openedAt: string
+  closedAt: string | null
+  initialAmount: number
+  finalAmount: number | null
+  expectedCash: number | null
+  expectedCard: number | null
+  expectedTransfer: number | null
+  declaredCash: number | null
+  declaredCard: number | null
+  declaredTransfer: number | null
+  cashDifference: number | null
+  cardDifference: number | null
+  transferDifference: number | null
+  notes: string | null
+}
+
+export interface CashRegisterWithDetails extends CashRegister {
+  openedByUser: {
+    id: string
+    rut: string
+    name: string
+  } | null
+  closedByUser?: {
+    id: string
+    rut: string
+    name: string
+  } | null
+  currentTotals?: {
+    cash: number
+    card: number
+    webpay: number
+    transfer: number
+  }
+  salesCount: number
+  totalDifference?: number
+  isOpen?: boolean
+}
+
+export interface CloseCashRegisterData {
+  declaredCash: number
+  declaredCard: number
+  declaredTransfer: number
+  notes?: string
+}
+
+export interface CashRegisterSummary {
+  salesCount: number
+  expected: {
+    cash: number
+    card: number
+    transfer: number
+    total: number
+  }
+  declared: {
+    cash: number
+    card: number
+    transfer: number
+    total: number
+  }
+  differences: {
+    cash: number
+    card: number
+    transfer: number
+    total: number
+  }
+}
+
+// ============ POS SALE TYPES ============
+
+export type PosSaleStatus = "completed" | "void_pending" | "voided"
+
+export interface PosSale {
+  id: string
+  receiptNumber: string | null
+  totalClp: number
+  paymentMethod: string
+  status: PosSaleStatus
+  items: Array<{
+    productId?: string
+    planId?: string
+    quantity: number
+    unitPrice: number
+  }> | null
+  notes: string | null
+  createdAt: string
+  profile: {
+    id: string
+    firstName: string
+    lastName: string
+  } | null
+  soldBy: {
+    id: string
+    rut: string
+  } | null
+}
+
+// ============ VOID REQUEST TYPES ============
+
+export type VoidRequestStatus = "pending" | "approved" | "rejected"
+
+export interface VoidRequest {
+  id: string
+  reason: string
+  status: VoidRequestStatus
+  adminNotes: string | null
+  createdAt: string
+  reviewedAt: string | null
+  sale: {
+    id: string
+    receiptNumber: string | null
+    totalClp: number
+    paymentMethod: string
+    items: PosSale["items"]
+    createdAt: string
+  }
+  requestedBy: {
+    id: string
+    rut: string
+    name: string
+  }
+}
+
 export const adminApi = {
   getUsers: (params?: { search?: string; page?: number; limit?: number }) => {
     const searchParams = new URLSearchParams()
@@ -299,6 +427,43 @@ export const adminApi = {
 
   deletePlan: (id: string) =>
     apiFetch<{ success: boolean }>(`/admin/plans/${id}`, { method: "DELETE" }),
+
+  // Void Requests
+  getVoidRequests: (status?: VoidRequestStatus | "all") =>
+    apiFetch<{ voidRequests: VoidRequest[] }>(`/admin/void-requests${status ? `?status=${status}` : ""}`),
+
+  approveVoidRequest: (id: string, adminNotes?: string) =>
+    apiFetch<{ voidRequest: any; message: string }>(`/admin/void-requests/${id}/approve`, {
+      method: "POST",
+      body: JSON.stringify({ adminNotes }),
+    }),
+
+  rejectVoidRequest: (id: string, adminNotes: string) =>
+    apiFetch<{ voidRequest: any; message: string }>(`/admin/void-requests/${id}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ adminNotes }),
+    }),
+
+  // Cash Registers
+  getCashRegisters: (params?: {
+    page?: number
+    limit?: number
+    startDate?: string
+    endDate?: string
+    onlyWithDifferences?: boolean
+  }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.page) searchParams.set("page", params.page.toString())
+    if (params?.limit) searchParams.set("limit", params.limit.toString())
+    if (params?.startDate) searchParams.set("startDate", params.startDate)
+    if (params?.endDate) searchParams.set("endDate", params.endDate)
+    if (params?.onlyWithDifferences) searchParams.set("onlyWithDifferences", "true")
+    const query = searchParams.toString()
+    return apiFetch<{
+      cashRegisters: CashRegisterWithDetails[]
+      pagination: { page: number; limit: number; total: number; totalPages: number }
+    }>(`/admin/cash-registers${query ? `?${query}` : ""}`)
+  },
 }
 
 // ============ RECEPTION API ============
@@ -401,12 +566,77 @@ export const receptionApi = {
   createSale: (data: {
     userId?: string
     items: Array<{ type: "product" | "plan"; id: string; quantity: number }>
-    paymentMethod: "cash" | "webpay" | "transfer"
+    paymentMethod: "cash" | "card" | "transfer"
     notes?: string
   }) =>
-    apiFetch<{ sale: any; total: number; message: string }>("/reception/sale", {
+    apiFetch<{ sale: any; receiptNumber: string; total: number; message: string }>("/reception/sale", {
       method: "POST",
       body: JSON.stringify(data),
+    }),
+
+  // Cash Register
+  getCashRegister: () =>
+    apiFetch<{
+      cashRegister: CashRegisterWithDetails | null
+      isOpen: boolean
+    }>("/reception/cash-register/current"),
+
+  openCashRegister: (initialAmount: number) =>
+    apiFetch<{ cashRegister: CashRegister; message: string }>("/reception/cash-register/open", {
+      method: "POST",
+      body: JSON.stringify({ initialAmount }),
+    }),
+
+  closeCashRegister: (data: CloseCashRegisterData) =>
+    apiFetch<{
+      cashRegister: CashRegister
+      summary: CashRegisterSummary
+      message: string
+    }>("/reception/cash-register/close", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  // Sales History
+  getSalesHistory: (params?: {
+    page?: number
+    limit?: number
+    status?: PosSaleStatus
+    paymentMethod?: string
+    startDate?: string
+    endDate?: string
+  }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.page) searchParams.set("page", params.page.toString())
+    if (params?.limit) searchParams.set("limit", params.limit.toString())
+    if (params?.status) searchParams.set("status", params.status)
+    if (params?.paymentMethod) searchParams.set("paymentMethod", params.paymentMethod)
+    if (params?.startDate) searchParams.set("startDate", params.startDate)
+    if (params?.endDate) searchParams.set("endDate", params.endDate)
+    const query = searchParams.toString()
+    return apiFetch<{
+      sales: PosSale[]
+      pagination: { page: number; limit: number; total: number; totalPages: number }
+    }>(`/reception/sales${query ? `?${query}` : ""}`)
+  },
+
+  getSaleDetails: (id: string) =>
+    apiFetch<{
+      sale: PosSale & { transactionId: string | null }
+      voidRequest: {
+        id: string
+        reason: string
+        status: VoidRequestStatus
+        adminNotes: string | null
+        createdAt: string
+        reviewedAt: string | null
+      } | null
+    }>(`/reception/sales/${id}`),
+
+  requestVoid: (saleId: string, reason: string) =>
+    apiFetch<{ voidRequest: any; message: string }>(`/reception/sales/${saleId}/void-request`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
     }),
 }
 
@@ -600,6 +830,160 @@ export const routinesApi = {
 }
 
 // ============ USER API ============
+
+// ============ REPORTS API ============
+
+export interface ReportKPIs {
+  activeSubs: number
+  todayCheckins: number
+  todaySales: number
+  monthlyRevenue: number
+  prevMonthRevenue: number
+  revenueGrowth: number | null
+}
+
+export interface RevenueByPeriod {
+  total: number
+  byPaymentMethod: {
+    cash: number
+    webpay: number
+    transfer: number
+  }
+  transactionCount: number
+  period: string
+  startDate: string
+  endDate: string
+}
+
+export interface ReportTransaction {
+  id: string
+  totalClp: number
+  paymentMethod: string
+  items: Array<{
+    productId?: string
+    planId?: string
+    quantity: number
+    unitPrice: number
+  }> | null
+  notes: string | null
+  createdAt: string
+  profile: {
+    id: string
+    firstName: string
+    lastName: string
+  } | null
+  soldBy: {
+    id: string
+    rut: string
+  } | null
+}
+
+export interface DailyRevenue {
+  date: string
+  day: number
+  total: number
+}
+
+export interface MemberByPlan {
+  subscriptionId: string
+  status: string
+  startDate: string
+  endDate: string
+  profile: {
+    id: string
+    firstName: string
+    lastName: string
+    phone: string | null
+  }
+  user: {
+    rut: string
+  }
+}
+
+export interface PlanWithMembers {
+  planId: string
+  planName: string
+  priceClp: number
+  activeCount: number
+  totalRevenue: number
+  members: MemberByPlan[]
+}
+
+export interface RecentCheckin {
+  id: string
+  checkedInAt: string
+  checkedOutAt: string | null
+  method: string
+  profile: {
+    id: string
+    firstName: string
+    lastName: string
+  }
+  user: {
+    rut: string
+  }
+}
+
+export interface ExportData {
+  fecha: string
+  id: string
+  cliente: string
+  monto: number
+  metodoPago: string
+  items: string
+  vendedor: string
+  notas: string
+}
+
+export const reportsApi = {
+  getKPIs: () => apiFetch<ReportKPIs>("/reports/kpis"),
+
+  getRevenue: (params?: { period?: "today" | "3d" | "7d" | "month"; month?: string }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.period) searchParams.set("period", params.period)
+    if (params?.month) searchParams.set("month", params.month)
+    const query = searchParams.toString()
+    return apiFetch<RevenueByPeriod>(`/reports/revenue${query ? `?${query}` : ""}`)
+  },
+
+  getTransactions: (params?: {
+    from?: string
+    to?: string
+    type?: "all" | "plan" | "product"
+    paymentMethod?: "cash" | "webpay" | "transfer" | "all"
+    limit?: number
+  }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.from) searchParams.set("from", params.from)
+    if (params?.to) searchParams.set("to", params.to)
+    if (params?.type) searchParams.set("type", params.type)
+    if (params?.paymentMethod) searchParams.set("paymentMethod", params.paymentMethod)
+    if (params?.limit) searchParams.set("limit", params.limit.toString())
+    const query = searchParams.toString()
+    return apiFetch<{ transactions: ReportTransaction[]; count: number }>(
+      `/reports/transactions${query ? `?${query}` : ""}`
+    )
+  },
+
+  getRevenueChart: (month?: string) => {
+    const query = month ? `?month=${month}` : ""
+    return apiFetch<{ dailyRevenue: DailyRevenue[]; month: string; totalDays: number }>(
+      `/reports/revenue-chart${query}`
+    )
+  },
+
+  getMembersByPlan: () => apiFetch<{ plans: PlanWithMembers[] }>("/reports/members-by-plan"),
+
+  getRecentCheckins: (limit?: number) => {
+    const query = limit ? `?limit=${limit}` : ""
+    return apiFetch<{ checkins: RecentCheckin[] }>(`/reports/recent-checkins${query}`)
+  },
+
+  exportSales: (from: string, to: string) =>
+    apiFetch<{ data: ExportData[]; filename: string; count: number; period: { from: string; to: string } }>(
+      `/reports/export?from=${from}&to=${to}`
+    ),
+}
 
 export const userApi = {
   getProfile: () => apiFetch<{ profile: Profile }>("/user/profile"),

@@ -19,8 +19,8 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { icon: Home, label: "Inicio", to: "/my" },
-  { icon: ClipboardList, label: "Rutina", to: "/my/routine", roles: ["user", "instructor"] },
-  { icon: TrendingUp, label: "Progreso", to: "/my/progress", roles: ["user", "instructor"] },
+  { icon: ClipboardList, label: "Rutina", to: "/my/routine", roles: ["user", "instructor", "admin"] },
+  { icon: TrendingUp, label: "Progreso", to: "/my/progress", roles: ["user", "instructor", "admin"] },
   { icon: UserCheck, label: "Check-in", to: "/reception/checkin", roles: ["admin", "reception"] },
   { icon: DollarSign, label: "POS", to: "/reception/pos", roles: ["admin", "reception"] },
   { icon: Settings, label: "Ajustes", to: "/settings" },

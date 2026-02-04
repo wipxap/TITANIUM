@@ -14,22 +14,30 @@ import routinesRoutes from "./routes/routines"
 import loyaltyRoutes from "./routes/loyalty"
 import familyRoutes from "./routes/family"
 import contractsRoutes from "./routes/contracts"
+import reportsRoutes from "./routes/reports"
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 
-// Global middleware
-app.use("*", logger())
+// CORS origins
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://titaniumgym.cl",
+  "https://titanium-bbt.pages.dev",
+]
+
+// CORS middleware
 app.use(
   "*",
   cors({
-    origin: [
-      "http://localhost:5173",
-      "https://titaniumgym.cl",
-      "https://titanium-bbt.pages.dev",
-    ],
+    origin: allowedOrigins,
     credentials: true,
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowHeaders: ["Content-Type", "Authorization"],
   })
 )
+
+// Global middleware
+app.use("*", logger())
 
 // Initialize DB and Auth
 app.use("*", initMiddleware)
@@ -55,6 +63,7 @@ app.route("/routines", routinesRoutes)
 app.route("/loyalty", loyaltyRoutes)
 app.route("/family", familyRoutes)
 app.route("/contracts", contractsRoutes)
+app.route("/reports", reportsRoutes)
 
 // 404 handler
 app.notFound((c) => {

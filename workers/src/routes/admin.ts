@@ -1,10 +1,11 @@
 import { Hono } from "hono"
 import { zValidator } from "@hono/zod-validator"
 import { z } from "zod"
-import { eq, desc, like, or, sql } from "drizzle-orm"
+import { eq, desc, like, or, sql, and, gte, lte, isNull } from "drizzle-orm"
 import type { Env, Variables } from "../types"
 import { requireAuth, requireRole } from "../middleware/auth"
-import { users, profiles, subscriptions, plans, machines, checkins } from "../db/schema"
+import { users, profiles, subscriptions, plans, machines, checkins, voidRequests, posSales, cashRegisters } from "../db/schema"
+import { formatRut } from "../lib/auth"
 
 const adminRoutes = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -295,6 +296,332 @@ adminRoutes.delete("/plans/:id", async (c) => {
   }
 
   return c.json({ success: true })
+})
+
+// ============ VOID REQUESTS ============
+
+// GET /admin/void-requests - List void requests
+adminRoutes.get("/void-requests", async (c) => {
+  const db = c.get("db")
+  const status = c.req.query("status") || "pending" // pending, approved, rejected, all
+
+  const conditions: any[] = []
+  if (status !== "all") {
+    conditions.push(eq(voidRequests.status, status as any))
+  }
+
+  const requests = await db
+    .select({
+      id: voidRequests.id,
+      reason: voidRequests.reason,
+      status: voidRequests.status,
+      adminNotes: voidRequests.adminNotes,
+      createdAt: voidRequests.createdAt,
+      reviewedAt: voidRequests.reviewedAt,
+      sale: {
+        id: posSales.id,
+        receiptNumber: posSales.receiptNumber,
+        totalClp: posSales.totalClp,
+        paymentMethod: posSales.paymentMethod,
+        items: posSales.items,
+        createdAt: posSales.createdAt,
+      },
+      requestedBy: {
+        id: users.id,
+        rut: users.rut,
+      },
+    })
+    .from(voidRequests)
+    .innerJoin(posSales, eq(voidRequests.saleId, posSales.id))
+    .innerJoin(users, eq(voidRequests.requestedById, users.id))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(voidRequests.createdAt))
+
+  // Get requester profiles
+  const requestsWithProfiles = await Promise.all(
+    requests.map(async (r) => {
+      const [profile] = await db
+        .select({
+          firstName: profiles.firstName,
+          lastName: profiles.lastName,
+        })
+        .from(profiles)
+        .where(eq(profiles.userId, r.requestedBy.id))
+        .limit(1)
+
+      return {
+        ...r,
+        requestedBy: {
+          ...r.requestedBy,
+          rut: formatRut(r.requestedBy.rut),
+          name: profile ? `${profile.firstName} ${profile.lastName}` : "N/A",
+        },
+      }
+    })
+  )
+
+  return c.json({ voidRequests: requestsWithProfiles })
+})
+
+// POST /admin/void-requests/:id/approve - Approve void request
+const approveVoidSchema = z.object({
+  adminNotes: z.string().optional(),
+})
+
+adminRoutes.post("/void-requests/:id/approve", zValidator("json", approveVoidSchema), async (c) => {
+  const db = c.get("db")
+  const { id } = c.req.param()
+  const { adminNotes } = c.req.valid("json")
+  const adminUser = c.get("user")!
+
+  // Get void request with sale
+  const [request] = await db
+    .select({
+      id: voidRequests.id,
+      saleId: voidRequests.saleId,
+      status: voidRequests.status,
+    })
+    .from(voidRequests)
+    .where(eq(voidRequests.id, id))
+    .limit(1)
+
+  if (!request) {
+    return c.json({ error: "Solicitud no encontrada" }, 404)
+  }
+
+  if (request.status !== "pending") {
+    return c.json({ error: "Esta solicitud ya fue procesada" }, 400)
+  }
+
+  // Get sale with items to check for plans
+  const [sale] = await db
+    .select()
+    .from(posSales)
+    .where(eq(posSales.id, request.saleId))
+    .limit(1)
+
+  if (!sale) {
+    return c.json({ error: "Venta no encontrada" }, 404)
+  }
+
+  // Update void request
+  const [updatedRequest] = await db
+    .update(voidRequests)
+    .set({
+      status: "approved",
+      reviewedById: adminUser.id,
+      reviewedAt: new Date(),
+      adminNotes,
+    })
+    .where(eq(voidRequests.id, id))
+    .returning()
+
+  // Update sale status
+  await db
+    .update(posSales)
+    .set({ status: "voided" })
+    .where(eq(posSales.id, request.saleId))
+
+  // If sale included a plan, cancel the subscription
+  const items = sale.items as Array<{ planId?: string; productId?: string; quantity: number; unitPrice: number }> | null
+  if (items && sale.profileId) {
+    const planItems = items.filter((item) => item.planId)
+    for (const planItem of planItems) {
+      // Find and cancel the subscription created by this sale
+      const [subscription] = await db
+        .select()
+        .from(subscriptions)
+        .where(
+          and(
+            eq(subscriptions.profileId, sale.profileId),
+            eq(subscriptions.planId, planItem.planId!),
+            eq(subscriptions.status, "active")
+          )
+        )
+        .orderBy(desc(subscriptions.createdAt))
+        .limit(1)
+
+      if (subscription) {
+        await db
+          .update(subscriptions)
+          .set({ status: "cancelled" })
+          .where(eq(subscriptions.id, subscription.id))
+      }
+    }
+  }
+
+  return c.json({
+    voidRequest: updatedRequest,
+    message: "Solicitud aprobada. La venta ha sido anulada.",
+  })
+})
+
+// POST /admin/void-requests/:id/reject - Reject void request
+const rejectVoidSchema = z.object({
+  adminNotes: z.string().min(1, "Debe proporcionar una razón para el rechazo"),
+})
+
+adminRoutes.post("/void-requests/:id/reject", zValidator("json", rejectVoidSchema), async (c) => {
+  const db = c.get("db")
+  const { id } = c.req.param()
+  const { adminNotes } = c.req.valid("json")
+  const adminUser = c.get("user")!
+
+  // Get void request
+  const [request] = await db
+    .select()
+    .from(voidRequests)
+    .where(eq(voidRequests.id, id))
+    .limit(1)
+
+  if (!request) {
+    return c.json({ error: "Solicitud no encontrada" }, 404)
+  }
+
+  if (request.status !== "pending") {
+    return c.json({ error: "Esta solicitud ya fue procesada" }, 400)
+  }
+
+  // Update void request
+  const [updatedRequest] = await db
+    .update(voidRequests)
+    .set({
+      status: "rejected",
+      reviewedById: adminUser.id,
+      reviewedAt: new Date(),
+      adminNotes,
+    })
+    .where(eq(voidRequests.id, id))
+    .returning()
+
+  // Revert sale status to completed
+  await db
+    .update(posSales)
+    .set({ status: "completed" })
+    .where(eq(posSales.id, request.saleId))
+
+  return c.json({
+    voidRequest: updatedRequest,
+    message: "Solicitud rechazada. La venta permanece activa.",
+  })
+})
+
+// ============ CASH REGISTERS ============
+
+// GET /admin/cash-registers - List cash registers for supervision
+adminRoutes.get("/cash-registers", async (c) => {
+  const db = c.get("db")
+  const page = parseInt(c.req.query("page") || "1")
+  const limit = parseInt(c.req.query("limit") || "20")
+  const startDate = c.req.query("startDate")
+  const endDate = c.req.query("endDate")
+  const onlyWithDifferences = c.req.query("onlyWithDifferences") === "true"
+  const offset = (page - 1) * limit
+
+  const conditions: any[] = []
+
+  if (startDate) {
+    conditions.push(gte(cashRegisters.openedAt, new Date(startDate)))
+  }
+  if (endDate) {
+    const end = new Date(endDate)
+    end.setHours(23, 59, 59, 999)
+    conditions.push(lte(cashRegisters.openedAt, end))
+  }
+
+  if (onlyWithDifferences) {
+    conditions.push(
+      or(
+        sql`${cashRegisters.cashDifference} != 0`,
+        sql`${cashRegisters.cardDifference} != 0`,
+        sql`${cashRegisters.transferDifference} != 0`
+      )
+    )
+  }
+
+  const registers = await db
+    .select()
+    .from(cashRegisters)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(cashRegisters.openedAt))
+    .limit(limit)
+    .offset(offset)
+
+  // Get user info for each register
+  const registersWithUsers = await Promise.all(
+    registers.map(async (r) => {
+      const [openedByUser] = await db
+        .select({
+          id: users.id,
+          rut: users.rut,
+          profile: {
+            firstName: profiles.firstName,
+            lastName: profiles.lastName,
+          },
+        })
+        .from(users)
+        .leftJoin(profiles, eq(users.id, profiles.userId))
+        .where(eq(users.id, r.openedBy))
+        .limit(1)
+
+      let closedByUser = null
+      if (r.closedBy) {
+        const [user] = await db
+          .select({
+            id: users.id,
+            rut: users.rut,
+            profile: {
+              firstName: profiles.firstName,
+              lastName: profiles.lastName,
+            },
+          })
+          .from(users)
+          .leftJoin(profiles, eq(users.id, profiles.userId))
+          .where(eq(users.id, r.closedBy))
+          .limit(1)
+        closedByUser = user
+      }
+
+      // Get sales count
+      const [salesCount] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(posSales)
+        .where(eq(posSales.cashRegisterId, r.id))
+
+      return {
+        ...r,
+        openedByUser: openedByUser ? {
+          id: openedByUser.id,
+          rut: formatRut(openedByUser.rut),
+          name: openedByUser.profile ? `${openedByUser.profile.firstName} ${openedByUser.profile.lastName}` : "N/A",
+        } : null,
+        closedByUser: closedByUser ? {
+          id: closedByUser.id,
+          rut: formatRut(closedByUser.rut),
+          name: closedByUser.profile ? `${closedByUser.profile.firstName} ${closedByUser.profile.lastName}` : "N/A",
+        } : null,
+        salesCount: salesCount.count,
+        totalDifference: (r.cashDifference || 0) + (r.cardDifference || 0) + (r.transferDifference || 0),
+        isOpen: !r.closedAt,
+      }
+    })
+  )
+
+  // Get total count
+  const [totalResult] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(cashRegisters)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+
+  return c.json({
+    cashRegisters: registersWithUsers,
+    pagination: {
+      page,
+      limit,
+      total: Number(totalResult.count),
+      totalPages: Math.ceil(Number(totalResult.count) / limit),
+    },
+  })
 })
 
 export default adminRoutes

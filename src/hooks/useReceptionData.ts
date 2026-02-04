@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { receptionApi, type RenewSubscriptionData } from "@/lib/api"
+import { receptionApi, type RenewSubscriptionData, type CloseCashRegisterData, type PosSaleStatus } from "@/lib/api"
 
 export function useSearchUsers(query: string) {
   return useQuery({
@@ -102,10 +102,92 @@ export function useCreateSale() {
     mutationFn: receptionApi.createSale,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["reception"] })
+      queryClient.invalidateQueries({ queryKey: ["cash-register"] })
       toast.success(data.message || "Venta registrada")
     },
     onError: (error) => {
       toast.error(error.message || "Error al registrar venta")
+    },
+  })
+}
+
+// ============ CASH REGISTER HOOKS ============
+
+export function useCashRegister() {
+  return useQuery({
+    queryKey: ["cash-register", "current"],
+    queryFn: receptionApi.getCashRegister,
+    refetchInterval: 60000, // Refresh every minute
+  })
+}
+
+export function useOpenCashRegister() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (initialAmount: number) => receptionApi.openCashRegister(initialAmount),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["cash-register"] })
+      toast.success(data.message || "Caja abierta exitosamente")
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al abrir la caja")
+    },
+  })
+}
+
+export function useCloseCashRegister() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: CloseCashRegisterData) => receptionApi.closeCashRegister(data),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["cash-register"] })
+      toast.success(data.message || "Caja cerrada exitosamente")
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al cerrar la caja")
+    },
+  })
+}
+
+// ============ SALES HISTORY HOOKS ============
+
+export function useSalesHistory(params?: {
+  page?: number
+  limit?: number
+  status?: PosSaleStatus
+  paymentMethod?: string
+  startDate?: string
+  endDate?: string
+}) {
+  return useQuery({
+    queryKey: ["reception", "sales", params],
+    queryFn: () => receptionApi.getSalesHistory(params),
+  })
+}
+
+export function useSaleDetails(id: string) {
+  return useQuery({
+    queryKey: ["reception", "sale", id],
+    queryFn: () => receptionApi.getSaleDetails(id),
+    enabled: !!id,
+  })
+}
+
+export function useRequestVoid() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ saleId, reason }: { saleId: string; reason: string }) =>
+      receptionApi.requestVoid(saleId, reason),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["reception", "sales"] })
+      queryClient.invalidateQueries({ queryKey: ["reception", "sale"] })
+      toast.success(data.message || "Solicitud de anulación enviada")
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al solicitar anulación")
     },
   })
 }

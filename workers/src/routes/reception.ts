@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import { zValidator } from "@hono/zod-validator"
 import { z } from "zod"
-import { eq, desc, and, gte, isNull, like, or, count } from "drizzle-orm"
+import { eq, desc, and, gte, lte, isNull, like, or, count, sum, sql } from "drizzle-orm"
 import type { Env, Variables } from "../types"
 import { requireAuth, requireRole } from "../middleware/auth"
 import {
@@ -12,9 +12,46 @@ import {
   checkins,
   products,
   posSales,
+  cashRegisters,
+  voidRequests,
 } from "../db/schema"
 import { cleanRut, formatRut } from "../lib/auth"
 import { calculateLoyaltyDiscount } from "./loyalty"
+
+// Helper para generar número de boleta: TI-YYYYMMDD-XXXX
+async function generateReceiptNumber(db: any): Promise<string> {
+  const now = new Date()
+  const dateStr = now.toLocaleDateString("en-CA", { timeZone: "America/Santiago" }).replace(/-/g, "")
+  const prefix = `TI-${dateStr}-`
+
+  // Buscar el último número de boleta del día
+  const todayStart = new Date(now.toLocaleDateString("en-CA", { timeZone: "America/Santiago" }))
+  const todayEnd = new Date(todayStart)
+  todayEnd.setDate(todayEnd.getDate() + 1)
+
+  const [lastSale] = await db
+    .select({ receiptNumber: posSales.receiptNumber })
+    .from(posSales)
+    .where(
+      and(
+        gte(posSales.createdAt, todayStart),
+        lte(posSales.createdAt, todayEnd),
+        sql`${posSales.receiptNumber} IS NOT NULL`
+      )
+    )
+    .orderBy(desc(posSales.createdAt))
+    .limit(1)
+
+  let nextNumber = 1
+  if (lastSale?.receiptNumber) {
+    const match = lastSale.receiptNumber.match(/-(\d+)$/)
+    if (match) {
+      nextNumber = parseInt(match[1], 10) + 1
+    }
+  }
+
+  return `${prefix}${String(nextNumber).padStart(4, "0")}`
+}
 
 const receptionRoutes = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -365,6 +402,247 @@ receptionRoutes.get("/today", async (c) => {
   })
 })
 
+// ============ CASH REGISTER ============
+
+// GET /reception/cash-register/current - Get current open cash register
+receptionRoutes.get("/cash-register/current", async (c) => {
+  const db = c.get("db")
+
+  const [openRegister] = await db
+    .select({
+      id: cashRegisters.id,
+      openedBy: cashRegisters.openedBy,
+      openedAt: cashRegisters.openedAt,
+      initialAmount: cashRegisters.initialAmount,
+      notes: cashRegisters.notes,
+    })
+    .from(cashRegisters)
+    .where(isNull(cashRegisters.closedAt))
+    .orderBy(desc(cashRegisters.openedAt))
+    .limit(1)
+
+  if (!openRegister) {
+    return c.json({ cashRegister: null, isOpen: false })
+  }
+
+  // Get opened by user info
+  const [openedByUser] = await db
+    .select({
+      id: users.id,
+      rut: users.rut,
+      profile: {
+        firstName: profiles.firstName,
+        lastName: profiles.lastName,
+      },
+    })
+    .from(users)
+    .leftJoin(profiles, eq(users.id, profiles.userId))
+    .where(eq(users.id, openRegister.openedBy))
+    .limit(1)
+
+  // Calculate current totals by payment method
+  const salesTotals = await db
+    .select({
+      paymentMethod: posSales.paymentMethod,
+      total: sum(posSales.totalClp),
+    })
+    .from(posSales)
+    .where(
+      and(
+        eq(posSales.cashRegisterId, openRegister.id),
+        eq(posSales.status, "completed")
+      )
+    )
+    .groupBy(posSales.paymentMethod)
+
+  const totals = {
+    cash: 0,
+    card: 0,
+    webpay: 0,
+    transfer: 0,
+  }
+
+  for (const row of salesTotals) {
+    const method = row.paymentMethod as keyof typeof totals
+    if (method in totals) {
+      totals[method] = Number(row.total) || 0
+    }
+  }
+
+  // Count sales
+  const [salesCount] = await db
+    .select({ count: count() })
+    .from(posSales)
+    .where(
+      and(
+        eq(posSales.cashRegisterId, openRegister.id),
+        eq(posSales.status, "completed")
+      )
+    )
+
+  return c.json({
+    cashRegister: {
+      ...openRegister,
+      openedByUser: openedByUser ? {
+        id: openedByUser.id,
+        rut: formatRut(openedByUser.rut),
+        name: openedByUser.profile ? `${openedByUser.profile.firstName} ${openedByUser.profile.lastName}` : "N/A",
+      } : null,
+      currentTotals: totals,
+      salesCount: salesCount.count,
+    },
+    isOpen: true,
+  })
+})
+
+// POST /reception/cash-register/open - Open a new cash register
+const openCashRegisterSchema = z.object({
+  initialAmount: z.number().int().min(0),
+})
+
+receptionRoutes.post("/cash-register/open", zValidator("json", openCashRegisterSchema), async (c) => {
+  const db = c.get("db")
+  const { initialAmount } = c.req.valid("json")
+  const receptionUser = c.get("user")!
+
+  // Check if there's already an open register
+  const [existingOpen] = await db
+    .select({ id: cashRegisters.id })
+    .from(cashRegisters)
+    .where(isNull(cashRegisters.closedAt))
+    .limit(1)
+
+  if (existingOpen) {
+    return c.json({ error: "Ya existe una caja abierta. Debe cerrarla primero." }, 400)
+  }
+
+  const [newRegister] = await db
+    .insert(cashRegisters)
+    .values({
+      openedBy: receptionUser.id,
+      initialAmount,
+    })
+    .returning()
+
+  return c.json({
+    cashRegister: newRegister,
+    message: "Caja abierta exitosamente",
+  })
+})
+
+// POST /reception/cash-register/close - Close the current cash register with reconciliation
+const closeCashRegisterSchema = z.object({
+  declaredCash: z.number().int().min(0),
+  declaredCard: z.number().int().min(0),
+  declaredTransfer: z.number().int().min(0),
+  notes: z.string().optional(),
+})
+
+receptionRoutes.post("/cash-register/close", zValidator("json", closeCashRegisterSchema), async (c) => {
+  const db = c.get("db")
+  const { declaredCash, declaredCard, declaredTransfer, notes } = c.req.valid("json")
+  const receptionUser = c.get("user")!
+
+  // Find open register
+  const [openRegister] = await db
+    .select()
+    .from(cashRegisters)
+    .where(isNull(cashRegisters.closedAt))
+    .limit(1)
+
+  if (!openRegister) {
+    return c.json({ error: "No hay caja abierta para cerrar" }, 400)
+  }
+
+  // Calculate expected totals from sales
+  const salesTotals = await db
+    .select({
+      paymentMethod: posSales.paymentMethod,
+      total: sum(posSales.totalClp),
+    })
+    .from(posSales)
+    .where(
+      and(
+        eq(posSales.cashRegisterId, openRegister.id),
+        eq(posSales.status, "completed")
+      )
+    )
+    .groupBy(posSales.paymentMethod)
+
+  let expectedCash = openRegister.initialAmount
+  let expectedCard = 0
+  let expectedTransfer = 0
+
+  for (const row of salesTotals) {
+    const total = Number(row.total) || 0
+    if (row.paymentMethod === "cash") {
+      expectedCash += total
+    } else if (row.paymentMethod === "card" || row.paymentMethod === "webpay") {
+      expectedCard += total
+    } else if (row.paymentMethod === "transfer") {
+      expectedTransfer += total
+    }
+  }
+
+  // Calculate differences
+  const cashDifference = declaredCash - expectedCash
+  const cardDifference = declaredCard - expectedCard
+  const transferDifference = declaredTransfer - expectedTransfer
+
+  // Update register with close data
+  const [closedRegister] = await db
+    .update(cashRegisters)
+    .set({
+      closedBy: receptionUser.id,
+      closedAt: new Date(),
+      finalAmount: declaredCash + declaredCard + declaredTransfer,
+      expectedCash,
+      expectedCard,
+      expectedTransfer,
+      declaredCash,
+      declaredCard,
+      declaredTransfer,
+      cashDifference,
+      cardDifference,
+      transferDifference,
+      notes,
+    })
+    .where(eq(cashRegisters.id, openRegister.id))
+    .returning()
+
+  // Get sales count
+  const [salesCount] = await db
+    .select({ count: count() })
+    .from(posSales)
+    .where(eq(posSales.cashRegisterId, openRegister.id))
+
+  return c.json({
+    cashRegister: closedRegister,
+    summary: {
+      salesCount: salesCount.count,
+      expected: {
+        cash: expectedCash,
+        card: expectedCard,
+        transfer: expectedTransfer,
+        total: expectedCash + expectedCard + expectedTransfer,
+      },
+      declared: {
+        cash: declaredCash,
+        card: declaredCard,
+        transfer: declaredTransfer,
+        total: declaredCash + declaredCard + declaredTransfer,
+      },
+      differences: {
+        cash: cashDifference,
+        card: cardDifference,
+        transfer: transferDifference,
+        total: cashDifference + cardDifference + transferDifference,
+      },
+    },
+    message: "Caja cerrada exitosamente",
+  })
+})
+
 // ============ SUBSCRIPTION VERIFICATION ============
 
 // GET /reception/user/:id/subscription - Get user subscription details
@@ -657,6 +935,17 @@ receptionRoutes.post("/sale", zValidator("json", saleSchema), async (c) => {
   const { userId, items, paymentMethod, notes } = c.req.valid("json")
   const receptionUser = c.get("user")!
 
+  // Verify open cash register
+  const [openRegister] = await db
+    .select({ id: cashRegisters.id })
+    .from(cashRegisters)
+    .where(isNull(cashRegisters.closedAt))
+    .limit(1)
+
+  if (!openRegister) {
+    return c.json({ error: "Debe abrir una caja antes de realizar ventas" }, 400)
+  }
+
   let totalAmount = 0
   const saleItems: Array<{
     productId?: string
@@ -775,23 +1064,229 @@ receptionRoutes.post("/sale", zValidator("json", saleSchema), async (c) => {
     profileId = profile?.id ?? null
   }
 
+  // Generate receipt number
+  const receiptNumber = await generateReceiptNumber(db)
+
   // Create sale record
   const [sale] = await db
     .insert(posSales)
     .values({
+      cashRegisterId: openRegister.id,
       profileId,
       soldById: receptionUser.id,
+      receiptNumber,
       items: saleItems,
       totalClp: totalAmount,
       paymentMethod,
+      status: "completed",
       notes,
     })
     .returning()
 
   return c.json({
     sale,
+    receiptNumber,
     total: totalAmount,
     message: "Venta registrada exitosamente",
+  })
+})
+
+// ============ SALES HISTORY ============
+
+// GET /reception/sales - Get sales history
+receptionRoutes.get("/sales", async (c) => {
+  const db = c.get("db")
+  const page = parseInt(c.req.query("page") || "1")
+  const limit = parseInt(c.req.query("limit") || "20")
+  const status = c.req.query("status") // completed, void_pending, voided
+  const paymentMethod = c.req.query("paymentMethod")
+  const startDate = c.req.query("startDate")
+  const endDate = c.req.query("endDate")
+  const offset = (page - 1) * limit
+
+  // Build conditions
+  const conditions: any[] = []
+
+  // For reception, default to today's sales
+  if (!startDate && !endDate) {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    conditions.push(gte(posSales.createdAt, today))
+  } else {
+    if (startDate) {
+      conditions.push(gte(posSales.createdAt, new Date(startDate)))
+    }
+    if (endDate) {
+      const end = new Date(endDate)
+      end.setHours(23, 59, 59, 999)
+      conditions.push(lte(posSales.createdAt, end))
+    }
+  }
+
+  if (status) {
+    conditions.push(eq(posSales.status, status as any))
+  }
+
+  if (paymentMethod) {
+    conditions.push(eq(posSales.paymentMethod, paymentMethod))
+  }
+
+  const sales = await db
+    .select({
+      id: posSales.id,
+      receiptNumber: posSales.receiptNumber,
+      totalClp: posSales.totalClp,
+      paymentMethod: posSales.paymentMethod,
+      status: posSales.status,
+      items: posSales.items,
+      notes: posSales.notes,
+      createdAt: posSales.createdAt,
+      profile: {
+        id: profiles.id,
+        firstName: profiles.firstName,
+        lastName: profiles.lastName,
+      },
+      soldBy: {
+        id: users.id,
+        rut: users.rut,
+      },
+    })
+    .from(posSales)
+    .leftJoin(profiles, eq(posSales.profileId, profiles.id))
+    .innerJoin(users, eq(posSales.soldById, users.id))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(posSales.createdAt))
+    .limit(limit)
+    .offset(offset)
+
+  // Get total count for pagination
+  const countConditions = conditions.length > 0 ? and(...conditions) : undefined
+  const [totalResult] = await db
+    .select({ count: count() })
+    .from(posSales)
+    .where(countConditions)
+
+  return c.json({
+    sales: sales.map((s) => ({
+      ...s,
+      soldBy: s.soldBy ? { ...s.soldBy, rut: formatRut(s.soldBy.rut) } : null,
+    })),
+    pagination: {
+      page,
+      limit,
+      total: totalResult.count,
+      totalPages: Math.ceil(totalResult.count / limit),
+    },
+  })
+})
+
+// GET /reception/sales/:id - Get sale details
+receptionRoutes.get("/sales/:id", async (c) => {
+  const db = c.get("db")
+  const { id } = c.req.param()
+
+  const [sale] = await db
+    .select({
+      id: posSales.id,
+      receiptNumber: posSales.receiptNumber,
+      totalClp: posSales.totalClp,
+      paymentMethod: posSales.paymentMethod,
+      transactionId: posSales.transactionId,
+      status: posSales.status,
+      items: posSales.items,
+      notes: posSales.notes,
+      createdAt: posSales.createdAt,
+      profile: {
+        id: profiles.id,
+        firstName: profiles.firstName,
+        lastName: profiles.lastName,
+      },
+    })
+    .from(posSales)
+    .leftJoin(profiles, eq(posSales.profileId, profiles.id))
+    .where(eq(posSales.id, id))
+    .limit(1)
+
+  if (!sale) {
+    return c.json({ error: "Venta no encontrada" }, 404)
+  }
+
+  // Get void request if exists
+  const [voidRequest] = await db
+    .select({
+      id: voidRequests.id,
+      reason: voidRequests.reason,
+      status: voidRequests.status,
+      adminNotes: voidRequests.adminNotes,
+      createdAt: voidRequests.createdAt,
+      reviewedAt: voidRequests.reviewedAt,
+    })
+    .from(voidRequests)
+    .where(eq(voidRequests.saleId, id))
+    .limit(1)
+
+  return c.json({
+    sale,
+    voidRequest: voidRequest || null,
+  })
+})
+
+// POST /reception/sales/:id/void-request - Request sale void
+const voidRequestSchema = z.object({
+  reason: z.string().min(10, "El motivo debe tener al menos 10 caracteres"),
+})
+
+receptionRoutes.post("/sales/:id/void-request", zValidator("json", voidRequestSchema), async (c) => {
+  const db = c.get("db")
+  const { id } = c.req.param()
+  const { reason } = c.req.valid("json")
+  const receptionUser = c.get("user")!
+
+  // Get sale
+  const [sale] = await db
+    .select()
+    .from(posSales)
+    .where(eq(posSales.id, id))
+    .limit(1)
+
+  if (!sale) {
+    return c.json({ error: "Venta no encontrada" }, 404)
+  }
+
+  if (sale.status !== "completed") {
+    return c.json({ error: "Solo se pueden anular ventas completadas" }, 400)
+  }
+
+  // Check if already has a void request
+  const [existingRequest] = await db
+    .select({ id: voidRequests.id })
+    .from(voidRequests)
+    .where(eq(voidRequests.saleId, id))
+    .limit(1)
+
+  if (existingRequest) {
+    return c.json({ error: "Esta venta ya tiene una solicitud de anulación" }, 400)
+  }
+
+  // Create void request
+  const [request] = await db
+    .insert(voidRequests)
+    .values({
+      saleId: id,
+      requestedById: receptionUser.id,
+      reason,
+    })
+    .returning()
+
+  // Update sale status
+  await db
+    .update(posSales)
+    .set({ status: "void_pending" })
+    .where(eq(posSales.id, id))
+
+  return c.json({
+    voidRequest: request,
+    message: "Solicitud de anulación enviada exitosamente",
   })
 })
 

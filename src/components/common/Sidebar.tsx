@@ -12,6 +12,7 @@ import {
   Package,
   LogOut,
   TrendingUp,
+  BarChart3,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { useAuth } from "@/hooks"
@@ -25,10 +26,11 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { icon: Home, label: "Dashboard", to: "/my" },
-  { icon: ClipboardList, label: "Mi Rutina", to: "/my/routine", roles: ["user", "instructor"] },
-  { icon: TrendingUp, label: "Mi Progreso", to: "/my/progress", roles: ["user", "instructor"] },
+  { icon: ClipboardList, label: "Mi Rutina", to: "/my/routine", roles: ["user", "instructor", "admin"] },
+  { icon: TrendingUp, label: "Mi Progreso", to: "/my/progress", roles: ["user", "instructor", "admin"] },
   { icon: UserCheck, label: "Check-in", to: "/reception/checkin", roles: ["admin", "reception"] },
   { icon: DollarSign, label: "POS", to: "/reception/pos", roles: ["admin", "reception"] },
+  { icon: BarChart3, label: "Reportes", to: "/admin/reports", roles: ["admin"] },
   { icon: Users, label: "Usuarios", to: "/admin/users", roles: ["admin"] },
   { icon: Dumbbell, label: "Máquinas", to: "/admin/machines", roles: ["admin", "instructor"] },
   { icon: Package, label: "Productos", to: "/admin/products", roles: ["admin"] },

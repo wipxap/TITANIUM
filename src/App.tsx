@@ -8,8 +8,8 @@ import {
   LoginPage,
 } from "./pages/public"
 import { MyDashboardPage, MyRoutinePage, SettingsPage, GenerateRoutinePage, ProgressPage } from "./pages/protected"
-import { AdminUsersPage, AdminMachinesPage } from "./pages/admin"
-import { CheckinPage, POSPage } from "./pages/reception"
+import { AdminUsersPage, AdminMachinesPage, AdminReportsPage, AdminProductsPage } from "./pages/admin"
+import { CheckinPage, POSPage, SalesHistoryPage } from "./pages/reception"
 import { ProtectedRoute } from "./components/common"
 
 function App() {
@@ -33,10 +33,13 @@ function App() {
       {/* Admin Routes */}
       <Route path="/admin/users" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUsersPage /></ProtectedRoute>} />
       <Route path="/admin/machines" element={<ProtectedRoute allowedRoles={["admin"]}><AdminMachinesPage /></ProtectedRoute>} />
+      <Route path="/admin/reports" element={<ProtectedRoute allowedRoles={["admin"]}><AdminReportsPage /></ProtectedRoute>} />
+      <Route path="/admin/products" element={<ProtectedRoute allowedRoles={["admin"]}><AdminProductsPage /></ProtectedRoute>} />
 
       {/* Reception Routes */}
       <Route path="/reception/checkin" element={<ProtectedRoute allowedRoles={["admin", "reception"]}><CheckinPage /></ProtectedRoute>} />
       <Route path="/reception/pos" element={<ProtectedRoute allowedRoles={["admin", "reception"]}><POSPage /></ProtectedRoute>} />
+      <Route path="/reception/sales" element={<ProtectedRoute allowedRoles={["admin", "reception"]}><SalesHistoryPage /></ProtectedRoute>} />
 
       {/* 404 */}
       <Route path="*" element={<HomePage />} />

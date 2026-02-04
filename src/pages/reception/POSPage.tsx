@@ -1,6 +1,11 @@
 import { useState } from "react"
 import { UserLayout } from "@/components/layout"
 import { DashboardCard, PremiumButton, MembershipCard } from "@/components/common"
+import {
+  CashRegisterStatus,
+  OpenCashRegisterDialog,
+  CloseCashRegisterDialog,
+} from "@/components/pos"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -25,6 +30,7 @@ import {
   Check,
   RefreshCw,
   AlertTriangle,
+  History,
 } from "lucide-react"
 import {
   useAuth,
@@ -33,7 +39,12 @@ import {
   useCreateSale,
   useUserSubscription,
   useRenewSubscription,
+  useCashRegister,
+  useOpenCashRegister,
+  useCloseCashRegister,
 } from "@/hooks"
+import { formatPrice } from "@/lib/utils"
+import { Link } from "react-router-dom"
 
 interface CartItem {
   id: string
@@ -46,23 +57,31 @@ interface CartItem {
 export function POSPage() {
   const { user } = useAuth()
   const { data: plansData, isLoading: loadingPlans } = useReceptionPlans()
+  const { data: cashRegisterData, isLoading: loadingCashRegister } = useCashRegister()
   const createSale = useCreateSale()
   const renewSubscription = useRenewSubscription()
+  const openCashRegister = useOpenCashRegister()
+  const closeCashRegister = useCloseCashRegister()
 
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [selectedUserName, setSelectedUserName] = useState<string>("")
   const [cart, setCart] = useState<CartItem[]>([])
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "webpay" | "transfer">("cash")
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "transfer">("cash")
   const [saleSuccess, setSaleSuccess] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [showOpenCashDialog, setShowOpenCashDialog] = useState(false)
+  const [showCloseCashDialog, setShowCloseCashDialog] = useState(false)
 
   const { data: searchResults } = useSearchUsers(searchQuery)
   const { data: subscriptionData, isLoading: loadingSubscription } = useUserSubscription(selectedUserId || "")
 
   const plans = plansData?.plans || []
+  const isCashRegisterOpen = cashRegisterData?.isOpen ?? false
 
   const addToCart = (plan: { id: string; name: string; priceClp: number }) => {
+    if (!isCashRegisterOpen) return
+
     const existing = cart.find((item) => item.id === plan.id)
     if (existing) {
       setCart(
@@ -105,14 +124,13 @@ export function POSPage() {
     setSearchQuery("")
   }
 
-  // Check if cart has a plan (membership)
   const hasPlanInCart = cart.some((item) => item.type === "plan")
   const isRenewal = hasPlanInCart && subscriptionData?.subscription !== null
 
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
   const handleSaleConfirm = () => {
-    if (cart.length === 0) return
+    if (cart.length === 0 || !isCashRegisterOpen) return
     setShowConfirmDialog(true)
   }
 
@@ -120,14 +138,13 @@ export function POSPage() {
     if (cart.length === 0) return
     setShowConfirmDialog(false)
 
-    // Check if it's a renewal (plan in cart + existing subscription)
     const planItem = cart.find((item) => item.type === "plan")
     if (planItem && selectedUserId && subscriptionData?.canRenew) {
       try {
         await renewSubscription.mutateAsync({
           userId: selectedUserId,
           planId: planItem.id,
-          paymentMethod,
+          paymentMethod: paymentMethod === "card" ? "webpay" : paymentMethod,
         })
 
         setSaleSuccess(true)
@@ -136,12 +153,11 @@ export function POSPage() {
           clearCart()
         }, 2000)
         return
-      } catch (error) {
+      } catch {
         return
       }
     }
 
-    // Regular sale
     try {
       await createSale.mutateAsync({
         userId: selectedUserId || undefined,
@@ -158,28 +174,65 @@ export function POSPage() {
         setSaleSuccess(false)
         clearCart()
       }, 2000)
-    } catch (error) {
+    } catch {
       // Error handled by mutation
     }
   }
 
-  const formatPrice = (price: number) =>
-    new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP" }).format(price)
+  const handleOpenCashRegister = async (initialAmount: number) => {
+    try {
+      await openCashRegister.mutateAsync(initialAmount)
+      setShowOpenCashDialog(false)
+    } catch {
+      // Error handled by mutation
+    }
+  }
+
+  const handleCloseCashRegister = async (data: {
+    declaredCash: number
+    declaredCard: number
+    declaredTransfer: number
+    notes?: string
+  }) => {
+    try {
+      await closeCashRegister.mutateAsync(data)
+      setShowCloseCashDialog(false)
+    } catch {
+      // Error handled by mutation
+    }
+  }
 
   return (
     <UserLayout title="POS - Recepción" userRole={user?.role}>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Punto de Venta</h1>
-          <p className="text-muted-foreground">
-            Venta de membresías y productos
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold">Punto de Venta</h1>
+            <p className="text-muted-foreground">
+              Venta de membresías y productos
+            </p>
+          </div>
+          <Link to="/reception/sales">
+            <PremiumButton variant="outline" className="gap-2">
+              <History className="h-4 w-4" />
+              Historial
+            </PremiumButton>
+          </Link>
         </div>
+
+        {/* Cash Register Status */}
+        <CashRegisterStatus
+          cashRegister={cashRegisterData?.cashRegister || null}
+          isOpen={isCashRegisterOpen}
+          isLoading={loadingCashRegister}
+          onOpen={() => setShowOpenCashDialog(true)}
+          onClose={() => setShowCloseCashDialog(true)}
+        />
 
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Left: Plans & Products */}
           <div className="space-y-6">
-            {/* Customer Search (Optional) */}
+            {/* Customer Search */}
             <DashboardCard title="Cliente (Opcional)">
               <div className="space-y-3">
                 <div className="relative">
@@ -192,6 +245,7 @@ export function POSPage() {
                       setSelectedUserId(null)
                     }}
                     className="pl-10 bg-background"
+                    disabled={!isCashRegisterOpen}
                   />
                 </div>
 
@@ -277,7 +331,12 @@ export function POSPage() {
                   <button
                     key={plan.id}
                     onClick={() => addToCart(plan)}
-                    className="flex items-center justify-between p-3 border border-border rounded-lg hover:border-primary hover:bg-primary/5 transition-all text-left"
+                    disabled={!isCashRegisterOpen}
+                    className={`flex items-center justify-between p-3 border border-border rounded-lg text-left transition-all ${
+                      isCashRegisterOpen
+                        ? "hover:border-primary hover:bg-primary/5"
+                        : "opacity-50 cursor-not-allowed"
+                    }`}
                   >
                     <div>
                       <p className="font-medium">{plan.name}</p>
@@ -315,7 +374,9 @@ export function POSPage() {
                   <ShoppingCart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">Carrito vacío</p>
                   <p className="text-sm text-muted-foreground">
-                    Selecciona productos o membresías
+                    {isCashRegisterOpen
+                      ? "Selecciona productos o membresías"
+                      : "Abre la caja para comenzar"}
                   </p>
                 </div>
               ) : (
@@ -385,15 +446,15 @@ export function POSPage() {
                         <span className="text-xs">Efectivo</span>
                       </button>
                       <button
-                        onClick={() => setPaymentMethod("webpay")}
+                        onClick={() => setPaymentMethod("card")}
                         className={`p-3 border rounded-lg flex flex-col items-center gap-1 transition-all ${
-                          paymentMethod === "webpay"
+                          paymentMethod === "card"
                             ? "border-primary bg-primary/10"
                             : "border-border hover:border-primary/50"
                         }`}
                       >
                         <CreditCard className="h-5 w-5" />
-                        <span className="text-xs">Webpay</span>
+                        <span className="text-xs">Tarjeta</span>
                       </button>
                       <button
                         onClick={() => setPaymentMethod("transfer")}
@@ -441,7 +502,7 @@ export function POSPage() {
                       onClick={handleSaleConfirm}
                       loading={createSale.isPending || renewSubscription.isPending}
                       className="flex-1"
-                      disabled={saleSuccess}
+                      disabled={saleSuccess || !isCashRegisterOpen}
                     >
                       {saleSuccess ? (
                         <>
@@ -494,7 +555,7 @@ export function POSPage() {
                   Total: <span className="font-bold text-primary">{formatPrice(total)}</span>
                 </p>
                 <p className="text-muted-foreground text-sm mt-1">
-                  Método de pago: {paymentMethod === "cash" ? "Efectivo" : paymentMethod === "webpay" ? "Webpay" : "Transferencia"}
+                  Método de pago: {paymentMethod === "cash" ? "Efectivo" : paymentMethod === "card" ? "Tarjeta" : "Transferencia"}
                 </p>
               </div>
               {isRenewal && hasPlanInCart && (
@@ -517,6 +578,23 @@ export function POSPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Open Cash Register Dialog */}
+      <OpenCashRegisterDialog
+        open={showOpenCashDialog}
+        onOpenChange={setShowOpenCashDialog}
+        onConfirm={handleOpenCashRegister}
+        isLoading={openCashRegister.isPending}
+      />
+
+      {/* Close Cash Register Dialog */}
+      <CloseCashRegisterDialog
+        open={showCloseCashDialog}
+        onOpenChange={setShowCloseCashDialog}
+        onConfirm={handleCloseCashRegister}
+        isLoading={closeCashRegister.isPending}
+        cashRegister={cashRegisterData?.cashRegister || null}
+      />
     </UserLayout>
   )
 }

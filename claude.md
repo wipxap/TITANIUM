@@ -206,6 +206,48 @@ Cloudflare Pages hace deploy automático (~2 min) desde GitHub cuando detecta pu
 
 ---
 
+## Base de Datos (CRÍTICO - LEER ANTES DE USAR MCP POSTGRES)
+
+**⚠️ ADVERTENCIA CRÍTICA: El MCP Postgres puede estar configurado con credenciales de OTRO proyecto. SIEMPRE verificar que estás conectado a la BD correcta antes de ejecutar queries.**
+
+### Credenciales de Titanium (ÚNICA BD VÁLIDA)
+
+| Campo | Valor |
+|-------|-------|
+| **Host** | `34.176.85.127` |
+| **Puerto** | `5432` |
+| **Database** | `titanium_app` |
+| **Usuario** | `titanium_app` |
+| **Región GCP** | `southamerica-west1-b` |
+
+### Verificación OBLIGATORIA
+
+**ANTES de usar MCP Postgres, ejecutar:**
+```sql
+SELECT current_database();
+-- DEBE retornar: titanium_app
+-- Si retorna OTRO nombre (ej: cemsa_db) → ESTÁS EN LA BD EQUIVOCADA
+```
+
+### Si el MCP Postgres está mal configurado
+
+Usar Bash con psql en lugar del MCP:
+```bash
+PGPASSWORD=<password> psql -h 34.176.85.127 -U titanium_app -d titanium_app -c "TU_QUERY"
+```
+
+### Tablas de Titanium
+
+```
+users, sessions, profiles, plans, subscriptions, machines,
+products, cash_registers, pos_sales, checkins, user_routines,
+progress_logs, loyalty_levels, contracts, signed_contracts, family_codes
+```
+
+**Si ves tablas como `auth_users`, `gym_configs`, `attendance`, `bookings` → ESTÁS EN CEMSA, NO EN TITANIUM.**
+
+---
+
 ## Variables de Entorno
 
 ```env
@@ -213,7 +255,7 @@ Cloudflare Pages hace deploy automático (~2 min) desde GitHub cuando detecta pu
 VITE_API_URL=http://localhost:8787
 
 # Backend (workers/.dev.vars)
-DATABASE_URL=postgresql://...
+DATABASE_URL=postgresql://titanium_app:<password>@34.176.85.127:5432/titanium_app
 GEMINI_API_KEY=...
 LUCIA_PEPPER=...
 ```
@@ -226,7 +268,7 @@ LUCIA_PEPPER=...
 |-----|-----|-------------|
 | **shadcn** | Componentes UI, patrones, bloques | **SIEMPRE** antes de crear/modificar componentes UI |
 | **Context7** | Documentación actualizada de librerías | SIEMPRE antes de implementar con Lucia, Drizzle, Hono, TanStack Query, Gemini |
-| **Postgres** | Queries SQL de solo lectura | Explorar datos, verificar schemas, debugging |
+| **Postgres** | Queries SQL de solo lectura | **⚠️ VERIFICAR BD PRIMERO** - Ver sección "Base de Datos" |
 | **GCloud** | CLI Google Cloud Platform | Cloud SQL, config southamerica-west1-b |
 | **Cloudflare** | Workers, KV, D1, R2, AI | Gestión de Workers, storage |
 | **GitHub** | PRs, issues, branches | Crear PRs, revisar código, gestión de repo |
@@ -264,9 +306,10 @@ mcp__shadcn__getComponent("X")   # Obtiene código, ejemplos y patrones de X
 **Flujo recomendado:**
 1. `shadcn` → Verificar componentes/bloques disponibles
 2. `Context7` → Verificar docs de librería
-3. `Postgres` → Explorar datos existentes
-4. Implementar código
-5. `GitHub` → Crear PR cuando listo
+3. **⚠️ ANTES de Postgres** → Verificar `SELECT current_database()` = `titanium_app`
+4. `Postgres` o `psql` → Explorar datos existentes
+5. Implementar código
+6. `GitHub` → Crear PR cuando listo
 
 ---
 

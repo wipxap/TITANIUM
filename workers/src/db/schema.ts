@@ -37,6 +37,19 @@ export const muscleGroupEnum = pgEnum("muscle_group", [
   "full_body",
 ])
 
+// POS Enums
+export const posSaleStatusEnum = pgEnum("pos_sale_status", [
+  "completed",
+  "void_pending",
+  "voided",
+])
+
+export const voidRequestStatusEnum = pgEnum("void_request_status", [
+  "pending",
+  "approved",
+  "rejected",
+])
+
 // ============ AUTH TABLES (Lucia compatible) ============
 
 export const users = pgTable("users", {
@@ -234,6 +247,18 @@ export const cashRegisters = pgTable("cash_registers", {
   closedAt: timestamp("closed_at"),
   initialAmount: integer("initial_amount").notNull().default(0),
   finalAmount: integer("final_amount"),
+  // Arqueo detallado - Esperados (calculados al cerrar)
+  expectedCash: integer("expected_cash"),
+  expectedCard: integer("expected_card"),
+  expectedTransfer: integer("expected_transfer"),
+  // Arqueo detallado - Declarados (ingresados por el usuario)
+  declaredCash: integer("declared_cash"),
+  declaredCard: integer("declared_card"),
+  declaredTransfer: integer("declared_transfer"),
+  // Diferencias (calculadas: declared - expected)
+  cashDifference: integer("cash_difference"),
+  cardDifference: integer("card_difference"),
+  transferDifference: integer("transfer_difference"),
   notes: text("notes"),
 })
 
@@ -246,9 +271,11 @@ export const posSales = pgTable("pos_sales", {
   soldById: uuid("sold_by_id")
     .notNull()
     .references(() => users.id),
+  receiptNumber: varchar("receipt_number", { length: 30 }), // Formato: TI-YYYYMMDD-XXXX
   totalClp: integer("total_clp").notNull(),
   paymentMethod: varchar("payment_method", { length: 20 }).notNull(), // cash, card, transfer
   transactionId: varchar("transaction_id", { length: 100 }),
+  status: posSaleStatusEnum("status").notNull().default("completed"),
   items: jsonb("items").$type<
     Array<{
       productId?: string
@@ -258,6 +285,25 @@ export const posSales = pgTable("pos_sales", {
     }>
   >(),
   notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+})
+
+// ============ VOID REQUESTS ============
+
+export const voidRequests = pgTable("void_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  saleId: uuid("sale_id")
+    .notNull()
+    .unique()
+    .references(() => posSales.id, { onDelete: "cascade" }),
+  requestedById: uuid("requested_by_id")
+    .notNull()
+    .references(() => users.id),
+  reason: text("reason").notNull(),
+  status: voidRequestStatusEnum("status").notNull().default("pending"),
+  reviewedById: uuid("reviewed_by_id").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  adminNotes: text("admin_notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 })
 
@@ -373,4 +419,72 @@ export const progressLogsRelations = relations(progressLogs, ({ one }) => ({
     fields: [progressLogs.routineId],
     references: [userRoutines.id],
   }),
+}))
+
+export const checkinsRelations = relations(checkins, ({ one }) => ({
+  profile: one(profiles, {
+    fields: [checkins.profileId],
+    references: [profiles.id],
+  }),
+  checkedInByUser: one(users, {
+    fields: [checkins.checkedInBy],
+    references: [users.id],
+  }),
+}))
+
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+  user: one(users, {
+    fields: [sessions.userId],
+    references: [users.id],
+  }),
+}))
+
+export const posSalesRelations = relations(posSales, ({ one }) => ({
+  profile: one(profiles, {
+    fields: [posSales.profileId],
+    references: [profiles.id],
+  }),
+  soldBy: one(users, {
+    fields: [posSales.soldById],
+    references: [users.id],
+  }),
+  cashRegister: one(cashRegisters, {
+    fields: [posSales.cashRegisterId],
+    references: [cashRegisters.id],
+  }),
+  voidRequest: one(voidRequests, {
+    fields: [posSales.id],
+    references: [voidRequests.saleId],
+  }),
+}))
+
+export const voidRequestsRelations = relations(voidRequests, ({ one }) => ({
+  sale: one(posSales, {
+    fields: [voidRequests.saleId],
+    references: [posSales.id],
+  }),
+  requestedBy: one(users, {
+    fields: [voidRequests.requestedById],
+    references: [users.id],
+    relationName: "requestedBy",
+  }),
+  reviewedBy: one(users, {
+    fields: [voidRequests.reviewedById],
+    references: [users.id],
+    relationName: "reviewedBy",
+  }),
+}))
+
+export const cashRegistersRelations = relations(cashRegisters, ({ one, many }) => ({
+  openedByUser: one(users, {
+    fields: [cashRegisters.openedBy],
+    references: [users.id],
+    relationName: "openedBy",
+  }),
+  closedByUser: one(users, {
+    fields: [cashRegisters.closedBy],
+    references: [users.id],
+    relationName: "closedBy",
+  }),
+  sales: many(posSales),
 }))
