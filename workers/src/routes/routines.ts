@@ -53,7 +53,7 @@ routinesRoutes.post("/generate", zValidator("json", generateRoutineSchema), asyn
 
   try {
     // Try to generate with Gemini
-    const geminiApiKey = c.env.GEMINI_API_KEY
+    const geminiApiKey = c.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY
 
     if (!geminiApiKey) {
       console.warn("GEMINI_API_KEY not configured, using fallback")

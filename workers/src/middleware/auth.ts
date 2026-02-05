@@ -3,12 +3,16 @@ import type { Env, Variables } from "../types"
 import { createDb } from "../db"
 import { createAuth } from "../lib/auth"
 
-// Initialize DB and Auth via Hyperdrive
+// Initialize DB and Auth - Hyperdrive (Workers) or DATABASE_URL (Node.js)
 export const initMiddleware = createMiddleware<{
   Bindings: Env
   Variables: Variables
 }>(async (c, next) => {
-  const db = createDb(c.env.HYPERDRIVE.connectionString)
+  const connectionString = c.env.HYPERDRIVE?.connectionString || c.env.DATABASE_URL || process.env.DATABASE_URL
+  if (!connectionString) {
+    throw new Error("No database connection string available")
+  }
+  const db = createDb(connectionString)
   const auth = createAuth(db)
 
   c.set("db", db)

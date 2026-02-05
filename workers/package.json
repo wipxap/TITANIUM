@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
+    "dev:node": "tsx src/server.ts",
+    "build": "tsup src/server.ts --format esm --target node20 --outDir dist",
+    "start": "node dist/server.js",
     "deploy": "wrangler deploy",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -14,6 +17,7 @@
     "setup:gcp": "bash scripts/setup-gcp.sh"
   },
   "dependencies": {
+    "@hono/node-server": "^1.13.0",
     "@hono/zod-validator": "^0.4.0",
     "@lucia-auth/adapter-drizzle": "^1.1.0",
     "@noble/hashes": "^1.6.0",
@@ -26,7 +30,9 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241230.0",
+    "@types/node": "^20.0.0",
     "drizzle-kit": "^0.30.0",
+    "tsup": "^8.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "wrangler": "^4.62.0"

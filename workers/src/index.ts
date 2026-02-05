@@ -23,6 +23,8 @@ const allowedOrigins = [
   "http://localhost:5173",
   "https://titaniumgym.cl",
   "https://titanium-bbt.pages.dev",
+  "https://titanium-gym.pages.dev",
+  "https://34-54-40-117.sslip.io",
 ]
 
 // CORS middleware
@@ -76,7 +78,7 @@ app.onError((err, c) => {
   return c.json(
     {
       error: "Internal server error",
-      message: c.env.ENVIRONMENT === "development" ? err.message : undefined,
+      message: (c.env.ENVIRONMENT || process.env.ENVIRONMENT) === "development" ? err.message : undefined,
     },
     500
   )

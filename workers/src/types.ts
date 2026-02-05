@@ -1,12 +1,13 @@
 import type { Database } from "./db"
 import type { Lucia, Session, User } from "lucia"
 
-// Use Cloudflare's global Hyperdrive type
+// Use Cloudflare's global Hyperdrive type (optional for Node.js runtime)
 export interface Env {
-  HYPERDRIVE: Hyperdrive
+  HYPERDRIVE?: Hyperdrive
+  DATABASE_URL?: string
   GEMINI_API_KEY?: string
   LUCIA_PEPPER?: string
-  ENVIRONMENT: string
+  ENVIRONMENT?: string
 }
 
 export interface Variables {
