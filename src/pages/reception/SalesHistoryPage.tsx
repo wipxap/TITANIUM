@@ -2,7 +2,6 @@ import { useState } from "react"
 import { UserLayout } from "@/components/layout"
 import { DashboardCard, PremiumButton } from "@/components/common"
 import { SalesHistoryTable, VoidRequestDialog } from "@/components/pos"
-import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
