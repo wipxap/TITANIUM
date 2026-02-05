@@ -206,6 +206,39 @@ Cloudflare Pages hace deploy automático (~2 min) desde GitHub cuando detecta pu
 
 ---
 
+## Arquitectura Backend (CRÍTICO)
+
+**Estado actual: Backend en GCP Compute Engine (migración temporal)**
+
+El Cloudflare Worker (`titanium-gym-api.wipxap.workers.dev`) está **muerto** (error 1101). La API corre en GCP Compute Engine.
+
+| Componente | URL | Estado |
+|-----------|-----|--------|
+| **Frontend** | `https://titanium-bbt.pages.dev` | Cloudflare Pages (deploy vía git push) |
+| **API (producción)** | `https://34-54-40-117.sslip.io` | GCP Compute Engine (IP: 34.54.40.117) |
+| **API (Worker)** | `https://titanium-gym-api.wipxap.workers.dev` | **MUERTO** - Error 1101 |
+
+### Variables de entorno de producción
+
+- **`.env.production`** (en git): `VITE_API_URL=https://34-54-40-117.sslip.io`
+- **Cloudflare Pages dashboard**: Puede tener `VITE_API_URL` que **sobreescribe** el archivo. Verificar que apunte a GCP, no al Worker muerto.
+
+### GCP Compute Engine
+
+- **IP**: `34.54.40.117`
+- **Dominio**: `34-54-40-117.sslip.io` (SSL automático via sslip.io)
+- **Docker**: `workers/Dockerfile` → ejecuta `npx tsx src/server.ts`
+- **Entry point**: `workers/src/server.ts` (Hono + `@hono/node-server`)
+- **Puerto**: 8080
+
+### Si el frontend muestra errores CORS
+
+1. Verificar que Cloudflare Pages dashboard tenga `VITE_API_URL=https://34-54-40-117.sslip.io`
+2. Verificar que el origin del frontend esté en `allowedOrigins` en `workers/src/index.ts`
+3. Re-deploy: `git push` (triggerea build de Pages con `.env.production` correcto)
+
+---
+
 ## Base de Datos (CRÍTICO - LEER ANTES DE USAR MCP POSTGRES)
 
 **⚠️ ADVERTENCIA CRÍTICA: El MCP Postgres puede estar configurado con credenciales de OTRO proyecto. SIEMPRE verificar que estás conectado a la BD correcta antes de ejecutar queries.**
