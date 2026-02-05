@@ -149,8 +149,6 @@ export async function generateRoutineWithGemini(
   )
 
   if (!response.ok) {
-    const error = await response.text()
-    console.error("Gemini API error:", error)
     throw new Error("Error al generar rutina con IA")
   }
 
@@ -173,9 +171,8 @@ export async function generateRoutineWithGemini(
   try {
     const routine = JSON.parse(generatedText) as GeneratedRoutine
     return routine
-  } catch (e) {
-    console.error("Failed to parse Gemini response:", generatedText)
-    throw new Error("Error al procesar respuesta de IA")
+  } catch {
+    throw new Error("Respuesta de IA con formato inválido. Intenta de nuevo.")
   }
 }
 

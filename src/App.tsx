@@ -7,7 +7,7 @@ import {
   ContactoPage,
   LoginPage,
 } from "./pages/public"
-import { MyDashboardPage, MyRoutinePage, SettingsPage, GenerateRoutinePage, ProgressPage } from "./pages/protected"
+import { MyDashboardPage, MyRoutinePage, SettingsPage, GenerateRoutinePage, ProgressPage, WorkoutSessionPage } from "./pages/protected"
 import { AdminUsersPage, AdminMachinesPage, AdminReportsPage, AdminProductsPage } from "./pages/admin"
 import { CheckinPage, POSPage, SalesHistoryPage } from "./pages/reception"
 import { ProtectedRoute } from "./components/common"
@@ -30,6 +30,7 @@ function App() {
       <Route path="/my" element={<ProtectedRoute><MyDashboardPage /></ProtectedRoute>} />
       <Route path="/my/routine" element={<ProtectedRoute><MyRoutinePage /></ProtectedRoute>} />
       <Route path="/my/routine/generate" element={<ProtectedRoute><GenerateRoutinePage /></ProtectedRoute>} />
+      <Route path="/my/routine/workout" element={<ProtectedRoute><WorkoutSessionPage /></ProtectedRoute>} />
       <Route path="/my/progress" element={<ProtectedRoute><ProgressPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
 

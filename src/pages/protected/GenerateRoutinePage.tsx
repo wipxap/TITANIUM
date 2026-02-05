@@ -152,7 +152,7 @@ export function GenerateRoutinePage() {
       await generateRoutine.mutateAsync(payload)
       navigate("/my/routine")
     } catch {
-      setStep("focus")
+      // Stay in "generating" step — error UI is shown below
     }
   }
 
@@ -387,10 +387,22 @@ export function GenerateRoutinePage() {
               </p>
 
               {generateRoutine.isError && (
-                <div className="mt-4 p-4 bg-destructive/10 border border-destructive rounded-lg">
-                  <p className="text-destructive">
-                    Error al generar rutina. Intentando con rutina básica...
-                  </p>
+                <div className="mt-4 space-y-4">
+                  <div className="p-4 bg-destructive/10 border border-destructive rounded-lg">
+                    <p className="text-destructive">
+                      Error al generar rutina. Intenta de nuevo.
+                    </p>
+                  </div>
+                  <div className="flex gap-3 justify-center">
+                    <PremiumButton variant="outline" onClick={() => setStep("focus")}>
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Volver
+                    </PremiumButton>
+                    <PremiumButton onClick={handleGenerate}>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Reintentar
+                    </PremiumButton>
+                  </div>
                 </div>
               )}
             </div>

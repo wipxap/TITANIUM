@@ -56,7 +56,6 @@ routinesRoutes.post("/generate", zValidator("json", generateRoutineSchema), asyn
     const geminiApiKey = c.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY
 
     if (!geminiApiKey) {
-      console.warn("GEMINI_API_KEY not configured, using fallback")
       generatedRoutine = generateFallbackRoutine(data.daysPerWeek, data.experienceLevel)
     } else {
       generatedRoutine = await generateRoutineWithGemini(geminiApiKey, {
@@ -69,8 +68,7 @@ routinesRoutes.post("/generate", zValidator("json", generateRoutineSchema), asyn
         focusAreas: data.focusAreas,
       })
     }
-  } catch (error) {
-    console.error("Error generating routine:", error)
+  } catch {
     // Use fallback if AI fails
     generatedRoutine = generateFallbackRoutine(data.daysPerWeek, data.experienceLevel)
   }
