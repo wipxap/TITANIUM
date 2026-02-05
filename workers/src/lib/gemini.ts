@@ -184,34 +184,148 @@ export function generateFallbackRoutine(
   const isAdvanced = experienceLevel === "advanced"
   const sets = isAdvanced ? 4 : 3
   const reps = isAdvanced ? "8-10" : "10-12"
-
-  const fullBodyDay: RoutineDay = {
-    dayName: "Día",
-    focus: "Full Body",
-    exercises: [
-      { name: "Press de Banca", sets, reps, rest: "90s", notes: "Calentar con series ligeras" },
-      { name: "Jalón al Pecho", sets, reps, rest: "90s" },
-      { name: "Press Militar", sets, reps, rest: "60s" },
-      { name: "Prensa de Piernas", sets, reps, rest: "90s" },
-      { name: "Curl de Bíceps", sets: 3, reps: "12-15", rest: "60s" },
-      { name: "Extensión de Tríceps", sets: 3, reps: "12-15", rest: "60s" },
-      { name: "Crunch Abdominal", sets: 3, reps: "15-20", rest: "45s" },
-    ],
-  }
-
-  const days: RoutineDay[] = []
   const dayNames = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 
-  for (let i = 0; i < daysPerWeek; i++) {
-    days.push({
-      ...fullBodyDay,
-      dayName: dayNames[i] || `Día ${i + 1}`,
-    })
+  const templates: Record<string, RoutineDay> = {
+    push: {
+      dayName: "", focus: "Pecho, Hombros y Tríceps",
+      exercises: [
+        { name: "Press de Banca", sets, reps, rest: "90s", notes: "Calentar con 2 series ligeras" },
+        { name: "Press Inclinado Mancuernas", sets, reps, rest: "90s" },
+        { name: "Press Militar", sets, reps, rest: "90s" },
+        { name: "Elevaciones Laterales", sets: 3, reps: "12-15", rest: "60s" },
+        { name: "Fondos en Paralelas", sets: 3, reps: "10-12", rest: "60s" },
+        { name: "Extensión de Tríceps", sets: 3, reps: "12-15", rest: "60s" },
+      ],
+    },
+    pull: {
+      dayName: "", focus: "Espalda y Bíceps",
+      exercises: [
+        { name: "Jalón al Pecho", sets, reps, rest: "90s", notes: "Calentar con serie ligera" },
+        { name: "Remo con Barra", sets, reps, rest: "90s" },
+        { name: "Remo en Máquina", sets, reps, rest: "60s" },
+        { name: "Pullover en Polea", sets: 3, reps: "12-15", rest: "60s" },
+        { name: "Curl de Bíceps con Barra", sets: 3, reps: "10-12", rest: "60s" },
+        { name: "Curl Martillo", sets: 3, reps: "12-15", rest: "60s" },
+      ],
+    },
+    legs: {
+      dayName: "", focus: "Piernas y Core",
+      exercises: [
+        { name: "Sentadilla en Smith", sets, reps, rest: "120s", notes: "Calentar con serie ligera" },
+        { name: "Prensa de Piernas", sets, reps, rest: "90s" },
+        { name: "Extensión de Cuádriceps", sets: 3, reps: "12-15", rest: "60s" },
+        { name: "Curl de Piernas", sets: 3, reps: "12-15", rest: "60s" },
+        { name: "Elevación de Pantorrillas", sets: 3, reps: "15-20", rest: "45s" },
+        { name: "Crunch Abdominal", sets: 3, reps: "15-20", rest: "45s" },
+      ],
+    },
+    chest: {
+      dayName: "", focus: "Pecho",
+      exercises: [
+        { name: "Press de Banca", sets, reps, rest: "90s", notes: "Calentar con 2 series ligeras" },
+        { name: "Press Inclinado Mancuernas", sets, reps, rest: "90s" },
+        { name: "Aperturas en Máquina", sets: 3, reps: "12-15", rest: "60s" },
+        { name: "Crossover en Polea", sets: 3, reps: "12-15", rest: "60s" },
+        { name: "Fondos en Paralelas", sets: 3, reps: "10-12", rest: "60s" },
+      ],
+    },
+    back: {
+      dayName: "", focus: "Espalda",
+      exercises: [
+        { name: "Jalón al Pecho", sets, reps, rest: "90s", notes: "Calentar con serie ligera" },
+        { name: "Remo con Barra", sets, reps, rest: "90s" },
+        { name: "Remo en Máquina", sets, reps, rest: "60s" },
+        { name: "Pullover en Polea", sets: 3, reps: "12-15", rest: "60s" },
+        { name: "Peso Muerto Rumano", sets, reps, rest: "90s" },
+      ],
+    },
+    shoulders: {
+      dayName: "", focus: "Hombros",
+      exercises: [
+        { name: "Press Militar", sets, reps, rest: "90s", notes: "Calentar con serie ligera" },
+        { name: "Elevaciones Laterales", sets, reps: "12-15", rest: "60s" },
+        { name: "Elevaciones Frontales", sets: 3, reps: "12-15", rest: "60s" },
+        { name: "Pájaros en Máquina", sets: 3, reps: "12-15", rest: "60s" },
+        { name: "Encogimientos con Mancuernas", sets: 3, reps: "12-15", rest: "60s" },
+      ],
+    },
+    arms: {
+      dayName: "", focus: "Brazos",
+      exercises: [
+        { name: "Curl de Bíceps con Barra", sets, reps: "10-12", rest: "60s", notes: "Calentar con serie ligera" },
+        { name: "Curl Martillo", sets: 3, reps: "12-15", rest: "60s" },
+        { name: "Curl en Polea", sets: 3, reps: "12-15", rest: "60s" },
+        { name: "Extensión de Tríceps en Polea", sets, reps: "10-12", rest: "60s" },
+        { name: "Fondos en Paralelas", sets: 3, reps: "10-12", rest: "60s" },
+        { name: "Press Francés", sets: 3, reps: "12-15", rest: "60s" },
+      ],
+    },
+    upper: {
+      dayName: "", focus: "Tren Superior",
+      exercises: [
+        { name: "Press de Banca", sets, reps, rest: "90s", notes: "Calentar con serie ligera" },
+        { name: "Jalón al Pecho", sets, reps, rest: "90s" },
+        { name: "Press Militar", sets: 3, reps: "10-12", rest: "60s" },
+        { name: "Remo en Máquina", sets: 3, reps: "10-12", rest: "60s" },
+        { name: "Curl de Bíceps", sets: 3, reps: "12-15", rest: "60s" },
+        { name: "Extensión de Tríceps", sets: 3, reps: "12-15", rest: "60s" },
+      ],
+    },
+    fullbody: {
+      dayName: "", focus: "Full Body",
+      exercises: [
+        { name: "Press de Banca", sets, reps, rest: "90s", notes: "Calentar con series ligeras" },
+        { name: "Jalón al Pecho", sets, reps, rest: "90s" },
+        { name: "Press Militar", sets: 3, reps: "10-12", rest: "60s" },
+        { name: "Prensa de Piernas", sets, reps, rest: "90s" },
+        { name: "Curl de Bíceps", sets: 3, reps: "12-15", rest: "60s" },
+        { name: "Extensión de Tríceps", sets: 3, reps: "12-15", rest: "60s" },
+        { name: "Crunch Abdominal", sets: 3, reps: "15-20", rest: "45s" },
+      ],
+    },
   }
 
-  return {
-    name: "Rutina Full Body Básica",
-    description: "Rutina equilibrada para trabajar todo el cuerpo",
-    days,
+  // Split muscular según días disponibles
+  type SplitKey = keyof typeof templates
+  let splitKeys: SplitKey[]
+  let routineName: string
+  let routineDesc: string
+
+  switch (daysPerWeek) {
+    case 1:
+    case 2:
+      splitKeys = Array(daysPerWeek).fill("fullbody") as SplitKey[]
+      routineName = "Rutina Full Body"
+      routineDesc = "Rutina equilibrada para trabajar todo el cuerpo"
+      break
+    case 3:
+      splitKeys = ["push", "pull", "legs"]
+      routineName = "Rutina Push/Pull/Legs"
+      routineDesc = "Split clásico de 3 días para desarrollo equilibrado"
+      break
+    case 4:
+      splitKeys = ["push", "pull", "legs", "upper"]
+      routineName = "Rutina Push/Pull/Legs + Upper"
+      routineDesc = "Split de 4 días con énfasis en tren superior"
+      break
+    case 5:
+      splitKeys = ["chest", "back", "shoulders", "legs", "arms"]
+      routineName = "Rutina Bro Split 5 Días"
+      routineDesc = "Un grupo muscular por día para máximo volumen"
+      break
+    default: // 6-7
+      splitKeys = ["push", "pull", "legs", "push", "pull", "legs"]
+      if (daysPerWeek === 7) splitKeys.push("fullbody")
+      routineName = "Rutina PPL x2"
+      routineDesc = "Push/Pull/Legs doble frecuencia semanal"
+      break
   }
+
+  const days: RoutineDay[] = splitKeys.slice(0, daysPerWeek).map((key, i) => ({
+    ...templates[key],
+    dayName: dayNames[i] || `Día ${i + 1}`,
+  }))
+
+  return { name: routineName, description: routineDesc, days }
 }

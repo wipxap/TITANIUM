@@ -73,6 +73,8 @@ export function useProgress() {
   return useQuery({
     queryKey: ["user", "progress"],
     queryFn: userApi.getProgress,
+    retry: 1,
+    staleTime: 30_000,
   })
 }
 

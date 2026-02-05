@@ -255,7 +255,7 @@ userRoutes.post("/progress", zValidator("json", progressSchema), async (c) => {
       exerciseName: data.exerciseName,
       sets: data.sets,
       reps: data.reps,
-      weightKg: data.weightKg?.toString() ?? null,
+      weightKg: data.weightKg != null ? String(data.weightKg) : null,
       notes: data.notes ?? null,
     })
     .returning()
@@ -265,27 +265,32 @@ userRoutes.post("/progress", zValidator("json", progressSchema), async (c) => {
 
 // GET /user/progress - Get progress history
 userRoutes.get("/progress", async (c) => {
-  const db = c.get("db")
-  const user = c.get("user")!
+  try {
+    const db = c.get("db")
+    const user = c.get("user")!
 
-  const [profile] = await db
-    .select()
-    .from(profiles)
-    .where(eq(profiles.userId, user.id))
-    .limit(1)
+    const [profile] = await db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.userId, user.id))
+      .limit(1)
 
-  if (!profile) {
+    if (!profile) {
+      return c.json({ progress: [] })
+    }
+
+    const progress = await db
+      .select()
+      .from(progressLogs)
+      .where(eq(progressLogs.profileId, profile.id))
+      .orderBy(desc(progressLogs.completedAt))
+      .limit(100)
+
+    return c.json({ progress })
+  } catch (err) {
+    console.error("Error fetching progress:", err)
     return c.json({ progress: [] })
   }
-
-  const progress = await db
-    .select()
-    .from(progressLogs)
-    .where(eq(progressLogs.profileId, profile.id))
-    .orderBy(desc(progressLogs.completedAt))
-    .limit(100)
-
-  return c.json({ progress })
 })
 
 export default userRoutes

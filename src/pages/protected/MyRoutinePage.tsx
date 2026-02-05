@@ -115,7 +115,7 @@ export function MyRoutinePage() {
   const { user } = useAuth()
   const { data, isLoading, error, refetch } = useRoutines()
   const logProgress = useLogProgress()
-  const { data: progressData } = useProgress()
+  const { data: progressData, isError: progressError } = useProgress()
   const activateRoutine = useActivateRoutine()
   const deleteRoutine = useDeleteRoutine()
 
@@ -158,9 +158,9 @@ export function MyRoutinePage() {
     return null
   }, [routineDays, selectedDay])
 
-  // Persisted completions from progress API (today)
+  // Persisted completions from progress API (today) — non-blocking: if API fails, just use local state
   const todayCompleted = useMemo(() => {
-    if (!progressData?.progress || !activeRoutine) return new Set<string>()
+    if (progressError || !progressData?.progress || !activeRoutine) return new Set<string>()
     const todayStr = getTodayDateStr()
     const set = new Set<string>()
     for (const log of progressData.progress) {
@@ -172,7 +172,7 @@ export function MyRoutinePage() {
       }
     }
     return set
-  }, [progressData, activeRoutine])
+  }, [progressData, progressError, activeRoutine])
 
   // Local state merged with persisted
   const [localCompleted, setLocalCompleted] = useState<Set<string>>(new Set())
