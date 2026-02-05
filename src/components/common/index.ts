@@ -15,3 +15,5 @@ export { MembershipCard, calculateDaysRemaining, getMembershipStatus } from "./M
 export { LoyaltyCard } from "./LoyaltyCard"
 export { SignatureCanvas } from "./SignatureCanvas"
 export { ContractSignModal } from "./ContractSignModal"
+export { RoleSwitcher } from "./RoleSwitcher"
+export { ViewingAsBanner } from "./ViewingAsBanner"

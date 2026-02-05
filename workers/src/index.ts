@@ -25,6 +25,8 @@ const allowedOrigins = [
   "https://titanium-bbt.pages.dev",
   "https://titanium-gym.pages.dev",
   "https://34-54-40-117.sslip.io",
+  "capacitor://localhost",
+  "http://localhost",
 ]
 
 // CORS middleware

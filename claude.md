@@ -339,3 +339,4 @@ mcp__shadcn__getComponent("X")   # Obtiene código, ejemplos y patrones de X
 - Responder SIEMPRE en español
 - Ser conciso, no repetir información conocida
 - Errores: diagnosticar rápido y arreglar sin explicaciones excesivas
+    

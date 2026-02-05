@@ -1,4 +1,6 @@
 export { useAuth } from "./useAuth"
+export { useRoleSwitcher } from "./useRoleSwitcher"
+export { useCapacitor } from "./useCapacitor"
 export { useLandingStats, usePlans, usePlan, useMachines, useMachine, useMachinesByGroup } from "./usePublicData"
 export {
   useProfile,

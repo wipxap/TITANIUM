@@ -3,7 +3,7 @@ import { DashboardCard, StatCard, PremiumButton, QRCheckinModal, MembershipCard,
 import { Skeleton } from "@/components/ui/skeleton"
 import { Dumbbell, Calendar, TrendingUp, Sparkles } from "lucide-react"
 import { Link } from "react-router-dom"
-import { useAuth, useCheckins, useSubscription, useRoutines, useProgress, useMyLoyaltyLevel } from "@/hooks"
+import { useAuth, useCheckins, useSubscription, useRoutines, useProgress, useMyLoyaltyLevel, useRoleSwitcher } from "@/hooks"
 
 function StatCardSkeleton() {
   return (
@@ -69,9 +69,10 @@ export function MyDashboardPage() {
   const streak = calculateStreak()
   const isLoading = authLoading || checkinsLoading || subLoading
 
+  const { effectiveRole } = useRoleSwitcher()
   const firstName = profile?.firstName || "Usuario"
-  const isAdmin = user?.role === "admin"
-  const isReception = user?.role === "reception"
+  const isAdmin = effectiveRole === "admin"
+  const isReception = effectiveRole === "reception"
 
   return (
     <UserLayout title="Mi Dashboard - Titanium Gym" userRole={user?.role}>

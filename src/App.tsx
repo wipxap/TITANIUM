@@ -11,8 +11,11 @@ import { MyDashboardPage, MyRoutinePage, SettingsPage, GenerateRoutinePage, Prog
 import { AdminUsersPage, AdminMachinesPage, AdminReportsPage, AdminProductsPage } from "./pages/admin"
 import { CheckinPage, POSPage, SalesHistoryPage } from "./pages/reception"
 import { ProtectedRoute } from "./components/common"
+import { useCapacitor } from "@/hooks"
 
 function App() {
+  useCapacitor()
+
   return (
     <Routes>
       {/* Public Routes */}

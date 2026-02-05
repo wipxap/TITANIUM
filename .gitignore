@@ -44,6 +44,11 @@ coverage
 *.pem
 .cache
 
+# Release signing
+*.keystore
+*.jks
+*-SECRETS.txt
+
 # Capacitor native platforms (regenerable)
 ios/
 android/

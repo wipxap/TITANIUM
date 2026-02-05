@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom"
 import { Logo } from "./Logo"
+import { RoleSwitcher } from "./RoleSwitcher"
 import { cn } from "@/lib/utils"
 import {
   Home,
@@ -54,6 +55,7 @@ export function Sidebar({ userRole = "user" }: SidebarProps) {
   return (
     <aside className="hidden md:flex bg-card w-64 border-r border-border min-h-screen p-4 flex-col shrink-0">
       <Logo size="md" className="mb-6 mx-auto" />
+      <RoleSwitcher />
       <nav className="space-y-1 flex-1">
         {filteredItems.map(({ icon: Icon, label, to }) => (
           <NavLink
