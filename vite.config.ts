@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['assets/logo.png', 'robots.txt', 'sitemap.xml'],
+      includeAssets: ['robots.txt', 'sitemap.xml'],
       manifest: false, // Usamos manifest.json manual
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
