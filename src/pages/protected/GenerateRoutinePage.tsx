@@ -14,8 +14,10 @@ import {
   ArrowLeft,
   Check,
   Loader2,
+  AlertTriangle,
+  Info,
 } from "lucide-react"
-import { useAuth, useGenerateRoutine } from "@/hooks"
+import { useAuth, useGenerateRoutine, useSubscription } from "@/hooks"
 import { cn } from "@/lib/utils"
 import { generateRoutineSchema } from "@/lib/validations"
 import { toast } from "sonner"
@@ -42,12 +44,12 @@ const experienceLevels = [
 ]
 
 const goalOptions = [
-  { value: "muscle", label: "Ganar Músculo", icon: "💪" },
-  { value: "strength", label: "Aumentar Fuerza", icon: "🏋️" },
-  { value: "lose_fat", label: "Perder Grasa", icon: "🔥" },
-  { value: "endurance", label: "Resistencia", icon: "🏃" },
-  { value: "tone", label: "Tonificar", icon: "✨" },
-  { value: "health", label: "Salud General", icon: "❤️" },
+  { value: "muscle", label: "Ganar Músculo", icon: "💪", description: "Enfocado en hipertrofia con ejercicios compuestos y aislamiento" },
+  { value: "strength", label: "Aumentar Fuerza", icon: "🏋️", description: "Entrenamiento pesado con bajas repeticiones para máxima fuerza" },
+  { value: "lose_fat", label: "Perder Grasa", icon: "🔥", description: "Rutinas de alta intensidad y circuitos para maximizar la quema calórica" },
+  { value: "endurance", label: "Resistencia", icon: "🏃", description: "Mejora tu capacidad cardiovascular y resistencia general" },
+  { value: "tone", label: "Tonificar", icon: "✨", description: "Combinación de fuerza y resistencia para definición muscular" },
+  { value: "health", label: "Salud General", icon: "❤️", description: "Ejercicios equilibrados para bienestar y calidad de vida" },
 ]
 
 const focusAreas = [
@@ -66,6 +68,8 @@ export function GenerateRoutinePage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const generateRoutine = useGenerateRoutine()
+  const { data: subData, isLoading: subLoading } = useSubscription()
+  const isMembershipInactive = !subLoading && !subData?.subscription
 
   const [step, setStep] = useState<Step>("goals")
   const [formData, setFormData] = useState({
@@ -180,6 +184,16 @@ export function GenerateRoutinePage() {
           </p>
         </div>
 
+        {/* Membership Warning */}
+        {isMembershipInactive && (
+          <div className="flex items-center gap-3 p-3 rounded-lg border border-destructive/50 bg-destructive/10">
+            <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0" />
+            <p className="text-sm text-destructive">
+              Tu membresía no está activa. Renueva para generar nuevas rutinas.
+            </p>
+          </div>
+        )}
+
         {/* Progress Bar */}
         <div className="flex items-center gap-2">
           {[1, 2, 3, 4].map((n) => (
@@ -242,7 +256,10 @@ export function GenerateRoutinePage() {
                     <div className="text-2xl mb-2">{goal.icon}</div>
                     <div className="font-medium text-sm">{goal.label}</div>
                     {formData.selectedGoals.includes(goal.value) && (
-                      <Check className="h-4 w-4 text-primary mx-auto mt-2" />
+                      <>
+                        <p className="text-xs text-gray-400 mt-1.5 transition-all">{goal.description}</p>
+                        <Check className="h-4 w-4 text-primary mx-auto mt-2" />
+                      </>
                     )}
                   </button>
                 ))}
@@ -366,6 +383,12 @@ export function GenerateRoutinePage() {
                   </button>
                 ))}
               </div>
+              <div className="flex items-start gap-2.5 p-3 rounded-lg border border-amber-700/30 bg-amber-900/20">
+                <Info className="h-4 w-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-amber-300/80">
+                  Recuerda: la rutina es complementaria a una buena alimentación y descanso adecuado
+                </p>
+              </div>
             </div>
           )}
 
@@ -422,7 +445,7 @@ export function GenerateRoutinePage() {
               Anterior
             </PremiumButton>
 
-            <PremiumButton onClick={nextStep} disabled={!canProceed()}>
+            <PremiumButton onClick={nextStep} disabled={!canProceed() || isMembershipInactive}>
               {step === "focus" ? (
                 <>
                   <Sparkles className="mr-2 h-4 w-4" />

@@ -1,9 +1,10 @@
 import { LandingLayout } from "@/components/layout"
 import { PremiumButton, DashboardCard, StatCard } from "@/components/common"
+import { HeroCarousel } from "@/components/common/HeroCarousel"
 import { LocalBusinessSchema } from "@/components/seo"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Link } from "react-router-dom"
-import { Dumbbell, Users, Clock, MapPin } from "lucide-react"
+import { Dumbbell, Users, Clock, MapPin, LogIn } from "lucide-react"
 import { useLandingStats } from "@/hooks"
 
 function StatCardSkeleton() {
@@ -27,10 +28,11 @@ export function HomePage() {
   return (
     <LandingLayout>
       <LocalBusinessSchema page="home" />
-      {/* Hero Section */}
-      <section className="py-20 md:py-32">
-        <div className="container px-4">
-          <div className="max-w-3xl mx-auto text-center">
+      {/* Hero Section with Carousel */}
+      <section className="relative">
+        <HeroCarousel />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="max-w-3xl mx-auto text-center px-4">
             <h1 className="text-4xl md:text-6xl font-bold text-primary text-glow mb-6">
               Forja tu mejor
               <br />
@@ -42,12 +44,18 @@ export function HomePage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link to="/planes">
-                <PremiumButton className="text-lg px-8 py-6">
+                <PremiumButton className="text-lg px-8 py-6 w-full sm:w-auto">
                   Ver Planes
                 </PremiumButton>
               </Link>
+              <Link to="/login">
+                <PremiumButton className="text-lg px-8 py-6 w-full sm:w-auto">
+                  <LogIn className="mr-2 h-5 w-5" />
+                  Ingresar
+                </PremiumButton>
+              </Link>
               <Link to="/ubicacion">
-                <PremiumButton variant="outline" className="text-lg px-8 py-6">
+                <PremiumButton variant="outline" className="text-lg px-8 py-6 w-full sm:w-auto">
                   <MapPin className="mr-2 h-5 w-5" />
                   Ubicación
                 </PremiumButton>
@@ -73,24 +81,24 @@ export function HomePage() {
                 <StatCard
                   icon={Dumbbell}
                   label="Máquinas"
-                  value={stats?.totalMachines || "—"}
+                  value={stats?.totalMachines || "\u2014"}
                   accent
                 />
                 <StatCard
                   icon={Users}
                   label="Miembros activos"
-                  value={stats?.activeMembers || "—"}
+                  value={stats?.activeMembers || "\u2014"}
                 />
                 <StatCard
                   icon={Clock}
                   label="Horas abiertos"
-                  value={stats?.hoursOpen ? `${stats.hoursOpen}h` : "—"}
+                  value={stats?.hoursOpen ? `${stats.hoursOpen}h` : "\u2014"}
                   accent
                 />
                 <StatCard
                   icon={MapPin}
                   label="Ubicación"
-                  value={stats?.location || "—"}
+                  value={stats?.location || "\u2014"}
                 />
               </>
             )}
@@ -181,7 +189,7 @@ export function HomePage() {
         <div className="container px-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-muted-foreground text-sm">
-              © 2026 Titanium Gym. Todos los derechos reservados.
+              &copy; 2026 Titanium Gym. Todos los derechos reservados.
             </p>
             <div className="flex gap-6 text-sm text-muted-foreground">
               <Link to="/contacto" className="hover:text-primary transition-colors">

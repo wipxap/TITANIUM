@@ -17,6 +17,9 @@ import {
 } from "../db/schema"
 import { cleanRut, formatRut } from "../lib/auth"
 import { calculateLoyaltyDiscount } from "./loyalty"
+import { calculateRenewalDiscount } from "../lib/discounts"
+import { getBirthdayUsers } from "../lib/birthdays"
+import { requiresContractSignature } from "./contracts"
 
 // Helper para generar número de boleta: TI-YYYYMMDD-XXXX
 async function generateReceiptNumber(db: any): Promise<string> {
@@ -390,14 +393,32 @@ receptionRoutes.get("/today", async (c) => {
   const activeCount = todayCheckins.filter((c) => !c.checkedOutAt).length
   const totalCount = todayCheckins.length
 
+  // T6: Agrupar por profileId para detectar múltiples check-ins
+  const checkinsByProfile = new Map<string, number>()
+  for (const ci of todayCheckins) {
+    const pid = ci.profile.id
+    checkinsByProfile.set(pid, (checkinsByProfile.get(pid) || 0) + 1)
+  }
+
+  let flaggedCount = 0
+  const checkinsWithFlags = todayCheckins.map((ci) => {
+    const checkinCount = checkinsByProfile.get(ci.profile.id) || 1
+    const flagged = checkinCount > 1
+    if (flagged) flaggedCount++
+    return {
+      ...ci,
+      user: { rut: formatRut(ci.user.rut) },
+      flagged,
+      checkinCount,
+    }
+  })
+
   return c.json({
-    checkins: todayCheckins.map((c) => ({
-      ...c,
-      user: { rut: formatRut(c.user.rut) },
-    })),
+    checkins: checkinsWithFlags,
     stats: {
       active: activeCount,
       total: totalCount,
+      flagged: flaggedCount,
     },
   })
 })
@@ -745,6 +766,16 @@ receptionRoutes.post("/renew", zValidator("json", renewSchema), async (c) => {
     return c.json({ error: "Plan no encontrado" }, 404)
   }
 
+  // T12: Verificar contrato firmado antes de renovar
+  const contractCheck = await requiresContractSignature(db, profile.id)
+  if (contractCheck.required) {
+    return c.json({
+      error: "Contrato requerido",
+      contractRequired: true,
+      contractId: contractCheck.contractId,
+    }, 400)
+  }
+
   // Validate max purchases per user
   if (plan.maxPurchasesPerUser !== null) {
     const [purchaseCount] = await db
@@ -823,6 +854,9 @@ receptionRoutes.post("/renew", zValidator("json", renewSchema), async (c) => {
     accumulatedDays = currentSubscription?.loyaltyDaysAccumulated ?? 0
   }
 
+  // Check for renewal discount (informational, not auto-applied)
+  const renewalDiscount = await calculateRenewalDiscount(db, profile.id)
+
   // Calculate final price with loyalty discount
   const discountAmount = Math.round((plan.priceClp * loyaltyDiscount.discountPercent) / 100)
   const finalPrice = plan.priceClp - discountAmount
@@ -884,6 +918,11 @@ receptionRoutes.post("/renew", zValidator("json", renewSchema), async (c) => {
       originalPrice: plan.priceClp,
       finalPrice,
     },
+    renewalDiscount: renewalDiscount.discountPercent > 0 ? {
+      name: renewalDiscount.discountName,
+      discountPercent: renewalDiscount.discountPercent,
+      discountId: renewalDiscount.discountId,
+    } : null,
     message: currentSubscription ? "Membresía renovada exitosamente" : "Membresía activada exitosamente",
   })
 })
@@ -944,6 +983,27 @@ receptionRoutes.post("/sale", zValidator("json", saleSchema), async (c) => {
 
   if (!openRegister) {
     return c.json({ error: "Debe abrir una caja antes de realizar ventas" }, 400)
+  }
+
+  // T12: Verificar contrato firmado si la venta incluye un plan y hay usuario asociado
+  const hasPlanItem = items.some((item) => item.type === "plan")
+  if (hasPlanItem && userId) {
+    const [userProfile] = await db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.userId, userId))
+      .limit(1)
+
+    if (userProfile) {
+      const contractCheck = await requiresContractSignature(db, userProfile.id)
+      if (contractCheck.required) {
+        return c.json({
+          error: "Contrato requerido",
+          contractRequired: true,
+          contractId: contractCheck.contractId,
+        }, 400)
+      }
+    }
   }
 
   let totalAmount = 0
@@ -1288,6 +1348,38 @@ receptionRoutes.post("/sales/:id/void-request", zValidator("json", voidRequestSc
     voidRequest: request,
     message: "Solicitud de anulación enviada exitosamente",
   })
+})
+
+// ============ BIRTHDAYS ============
+
+// GET /reception/birthdays?range=today|week
+receptionRoutes.get("/birthdays", async (c) => {
+  const db = c.get("db")
+  const range = (c.req.query("range") || "today") as "today" | "week"
+  const result = await getBirthdayUsers(db, range)
+  return c.json(result)
+})
+
+// ============ RENEWAL DISCOUNT INFO ============
+
+// GET /reception/user/:id/renewal-discount - Check available renewal discount for user
+receptionRoutes.get("/user/:id/renewal-discount", async (c) => {
+  const db = c.get("db")
+  const { id } = c.req.param()
+
+  // Get profile
+  const [profile] = await db
+    .select()
+    .from(profiles)
+    .where(eq(profiles.userId, id))
+    .limit(1)
+
+  if (!profile) {
+    return c.json({ error: "Perfil no encontrado" }, 404)
+  }
+
+  const discount = await calculateRenewalDiscount(db, profile.id)
+  return c.json({ discount })
 })
 
 export default receptionRoutes

@@ -1,14 +1,14 @@
-import { Routes, Route } from "react-router-dom"
+import { Routes, Route, Navigate } from "react-router-dom"
 import {
   HomePage,
   PlanesPage,
-  MaquinasPage,
+  EspaciosPage,
   UbicacionPage,
   ContactoPage,
   LoginPage,
 } from "./pages/public"
 import { MyDashboardPage, MyRoutinePage, SettingsPage, GenerateRoutinePage, ProgressPage, WorkoutSessionPage } from "./pages/protected"
-import { AdminUsersPage, AdminMachinesPage, AdminReportsPage, AdminProductsPage } from "./pages/admin"
+import { AdminUsersPage, AdminMachinesPage, AdminReportsPage, AdminProductsPage, AdminSpacesPage } from "./pages/admin"
 import { CheckinPage, POSPage, SalesHistoryPage } from "./pages/reception"
 import { ProtectedRoute } from "./components/common"
 import { useCapacitor } from "@/hooks"
@@ -21,7 +21,8 @@ function App() {
       {/* Public Routes */}
       <Route path="/" element={<HomePage />} />
       <Route path="/planes" element={<PlanesPage />} />
-      <Route path="/maquinas" element={<MaquinasPage />} />
+      <Route path="/espacios" element={<EspaciosPage />} />
+      <Route path="/maquinas" element={<Navigate to="/espacios" replace />} />
       <Route path="/ubicacion" element={<UbicacionPage />} />
       <Route path="/contacto" element={<ContactoPage />} />
       <Route path="/login" element={<LoginPage />} />
@@ -39,6 +40,7 @@ function App() {
       <Route path="/admin/machines" element={<ProtectedRoute allowedRoles={["admin"]}><AdminMachinesPage /></ProtectedRoute>} />
       <Route path="/admin/reports" element={<ProtectedRoute allowedRoles={["admin"]}><AdminReportsPage /></ProtectedRoute>} />
       <Route path="/admin/products" element={<ProtectedRoute allowedRoles={["admin"]}><AdminProductsPage /></ProtectedRoute>} />
+      <Route path="/admin/spaces" element={<ProtectedRoute allowedRoles={["admin"]}><AdminSpacesPage /></ProtectedRoute>} />
 
       {/* Reception Routes */}
       <Route path="/reception/checkin" element={<ProtectedRoute allowedRoles={["admin", "reception"]}><CheckinPage /></ProtectedRoute>} />

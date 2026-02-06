@@ -19,9 +19,14 @@ import {
   Calendar,
   Trophy,
   Target,
+  Activity,
 } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useAuth, useProgress, useCheckins } from "@/hooks"
+
+function isCardioLog(p: { durationSeconds?: number | null }): boolean {
+  return !!p.durationSeconds && p.durationSeconds > 0
+}
 
 export function ProgressPage() {
   const { user } = useAuth()
@@ -292,17 +297,37 @@ export function ProgressPage() {
           ) : (
             <div className="overflow-x-auto -mx-4 sm:mx-0">
               <PremiumTable
-                headers={["Ejercicio", "Series x Reps", "Peso", "Fecha"]}
+                headers={["Ejercicio", "Detalle", "Intensidad", "Fecha"]}
                 rows={progress.slice(0, 10).map((p) => [
-                  <span key={p.id} className="font-medium">
+                  <span key={p.id} className="font-medium flex items-center gap-1.5">
+                    {isCardioLog(p) ? (
+                      <Activity className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+                    ) : (
+                      <Dumbbell className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                    )}
                     {p.exerciseName}
                   </span>,
-                  <span key={`sr-${p.id}`}>
-                    {p.sets} x {p.reps}
-                  </span>,
-                  <span key={`w-${p.id}`} className="text-primary font-medium">
-                    {p.weightKg ? `${p.weightKg} kg` : "—"}
-                  </span>,
+                  isCardioLog(p) ? (
+                    <span key={`sr-${p.id}`} className="text-green-400">
+                      {Math.round((p.durationSeconds || 0) / 60)} min
+                    </span>
+                  ) : (
+                    <span key={`sr-${p.id}`}>
+                      {p.sets} x {p.reps}
+                    </span>
+                  ),
+                  isCardioLog(p) ? (
+                    <span key={`w-${p.id}`} className="text-green-400 font-medium text-sm">
+                      {p.speed ? `${p.speed} km/h` : ""}
+                      {p.speed && p.incline ? " · " : ""}
+                      {p.incline ? `${p.incline}%` : ""}
+                      {!p.speed && !p.incline ? "—" : ""}
+                    </span>
+                  ) : (
+                    <span key={`w-${p.id}`} className="text-primary font-medium">
+                      {p.weightKg ? `${p.weightKg} kg` : "—"}
+                    </span>
+                  ),
                   <span key={`d-${p.id}`} className="text-muted-foreground text-sm">
                     {new Date(p.completedAt).toLocaleDateString("es-CL", {
                       day: "numeric",

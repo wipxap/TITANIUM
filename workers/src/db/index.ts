@@ -12,6 +12,8 @@ export function createDb(connectionString: string) {
   }
   const client = postgres(connectionString, {
     prepare: false, // Required for Hyperdrive
+    max: 5,         // Limit pool to prevent exhausting Cloud SQL connections
+    idle_timeout: 30,
   })
   cachedDb = drizzle(client, { schema })
   cachedConnStr = connectionString

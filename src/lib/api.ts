@@ -133,6 +133,18 @@ export interface Machine {
   quantity: number
 }
 
+export interface Space {
+  id: string
+  name: string
+  subtitle: string | null
+  description: string | null
+  floorNumber: number
+  imageUrl: string | null
+  features: string[] | null
+  sortOrder: number
+  isActive: boolean
+}
+
 export interface LandingStats {
   totalMachines: number
   activeMembers: number
@@ -149,6 +161,7 @@ export const publicApi = {
   getMachine: (id: string) => apiFetch<{ machine: Machine }>(`/public/machines/${id}`),
   getMachinesByGroup: (group: string) =>
     apiFetch<{ machines: Machine[] }>(`/public/machines/group/${group}`),
+  getSpaces: () => apiFetch<{ spaces: Space[] }>("/public/spaces"),
 }
 
 // ============ USER API ============
@@ -219,6 +232,9 @@ export interface ProgressLog {
   sets: number
   reps: number
   weightKg: string | null
+  durationSeconds: number | null
+  speed: string | null
+  incline: string | null
   notes: string | null
   completedAt: string
 }
@@ -427,6 +443,24 @@ export const adminApi = {
 
   deletePlan: (id: string) =>
     apiFetch<{ success: boolean }>(`/admin/plans/${id}`, { method: "DELETE" }),
+
+  // Spaces
+  getSpaces: () => apiFetch<{ spaces: Space[] }>("/admin/spaces"),
+
+  createSpace: (data: Partial<Space>) =>
+    apiFetch<{ space: Space }>("/admin/spaces", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  updateSpace: (id: string, data: Partial<Space>) =>
+    apiFetch<{ space: Space }>(`/admin/spaces/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  deleteSpace: (id: string) =>
+    apiFetch<{ success: boolean }>(`/admin/spaces/${id}`, { method: "DELETE" }),
 
   // Void Requests
   getVoidRequests: (status?: VoidRequestStatus | "all") =>
@@ -1012,6 +1046,9 @@ export const userApi = {
     sets: number
     reps: number
     weightKg?: number
+    durationSeconds?: number
+    speed?: number
+    incline?: number
     notes?: string
   }) =>
     apiFetch<{ progress: ProgressLog }>("/user/progress", {

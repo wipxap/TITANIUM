@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import { eq, sql, count, sum } from "drizzle-orm"
 import type { Env, Variables } from "../types"
-import { plans, machines, profiles, subscriptions } from "../db/schema"
+import { plans, machines, profiles, subscriptions, gymSpaces } from "../db/schema"
 
 const publicRoutes = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -98,6 +98,8 @@ publicRoutes.get("/machines", async (c) => {
       videoUrl: machines.videoUrl,
       imageUrl: machines.imageUrl,
       quantity: machines.quantity,
+      floor: machines.floor,
+      difficulty: machines.difficulty,
     })
     .from(machines)
     .where(eq(machines.isActive, true))
@@ -121,6 +123,8 @@ publicRoutes.get("/machines/:id", async (c) => {
       videoUrl: machines.videoUrl,
       imageUrl: machines.imageUrl,
       quantity: machines.quantity,
+      floor: machines.floor,
+      difficulty: machines.difficulty,
     })
     .from(machines)
     .where(eq(machines.id, id))
@@ -145,12 +149,36 @@ publicRoutes.get("/machines/group/:group", async (c) => {
       muscleGroup: machines.muscleGroup,
       description: machines.description,
       quantity: machines.quantity,
+      floor: machines.floor,
+      difficulty: machines.difficulty,
     })
     .from(machines)
     .where(eq(machines.muscleGroup, group as any))
     .orderBy(machines.name)
 
   return c.json({ machines: groupMachines })
+})
+
+// GET /public/spaces - Get all active spaces
+publicRoutes.get("/spaces", async (c) => {
+  const db = c.get("db")
+
+  const activeSpaces = await db
+    .select({
+      id: gymSpaces.id,
+      name: gymSpaces.name,
+      subtitle: gymSpaces.subtitle,
+      description: gymSpaces.description,
+      floorNumber: gymSpaces.floorNumber,
+      imageUrl: gymSpaces.imageUrl,
+      features: gymSpaces.features,
+      sortOrder: gymSpaces.sortOrder,
+    })
+    .from(gymSpaces)
+    .where(eq(gymSpaces.isActive, true))
+    .orderBy(gymSpaces.sortOrder)
+
+  return c.json({ spaces: activeSpaces })
 })
 
 export default publicRoutes

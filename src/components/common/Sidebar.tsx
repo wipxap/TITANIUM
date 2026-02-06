@@ -14,6 +14,7 @@ import {
   LogOut,
   TrendingUp,
   BarChart3,
+  Building2,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { useAuth } from "@/hooks"
@@ -34,6 +35,7 @@ const navItems: NavItem[] = [
   { icon: BarChart3, label: "Reportes", to: "/admin/reports", roles: ["admin"] },
   { icon: Users, label: "Usuarios", to: "/admin/users", roles: ["admin"] },
   { icon: Dumbbell, label: "Máquinas", to: "/admin/machines", roles: ["admin", "instructor"] },
+  { icon: Building2, label: "Espacios", to: "/admin/spaces", roles: ["admin"] },
   { icon: Package, label: "Productos", to: "/admin/products", roles: ["admin"] },
   { icon: Settings, label: "Ajustes", to: "/settings" },
 ]

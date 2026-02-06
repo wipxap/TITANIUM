@@ -1,6 +1,6 @@
 export { HomePage } from "./HomePage"
 export { PlanesPage } from "./PlanesPage"
-export { MaquinasPage } from "./MaquinasPage"
+export { EspaciosPage } from "./EspaciosPage"
 export { UbicacionPage } from "./UbicacionPage"
 export { ContactoPage } from "./ContactoPage"
 export { LoginPage } from "./LoginPage"

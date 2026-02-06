@@ -1,5 +1,5 @@
 interface LocalBusinessSchemaProps {
-  page?: "home" | "planes" | "maquinas" | "ubicacion" | "contacto"
+  page?: "home" | "planes" | "maquinas" | "espacios" | "ubicacion" | "contacto"
 }
 
 const businessInfo = {
@@ -54,6 +54,13 @@ const pageMetadata = {
       "Más de 200 máquinas de última generación: cardio, musculación, peso libre y funcional. El mejor equipamiento de Iquique.",
     keywords:
       "maquinas gimnasio iquique, equipamiento gym, pesas iquique, cardio iquique",
+  },
+  espacios: {
+    title: "Espacios y Pisos | Titanium Gym Iquique",
+    description:
+      "Conoce nuestros espacios premium: pisos dedicados a musculación, cardio, funcional y más. Instalaciones de primer nivel en Iquique.",
+    keywords:
+      "espacios gimnasio iquique, pisos gym iquique, instalaciones gimnasio, titanium gym espacios",
   },
   ubicacion: {
     title: "Ubicación y Horarios | Titanium Gym Iquique",
@@ -170,7 +177,7 @@ export function LocalBusinessSchema({ page = "home" }: LocalBusinessSchemaProps)
               "@type": "ListItem",
               position: 2,
               name: meta.title.split("|")[0].trim(),
-              item: `https://titaniumgym.cl/${page === "maquinas" ? "maquinas" : page}`,
+              item: `https://titaniumgym.cl/${page}`,
             },
           ]
         : []),

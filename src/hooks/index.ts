@@ -1,7 +1,7 @@
 export { useAuth } from "./useAuth"
 export { useRoleSwitcher } from "./useRoleSwitcher"
 export { useCapacitor } from "./useCapacitor"
-export { useLandingStats, usePlans, usePlan, useMachines, useMachine, useMachinesByGroup } from "./usePublicData"
+export { useLandingStats, usePlans, usePlan, useMachines, useMachine, useMachinesByGroup, useSpaces } from "./usePublicData"
 export {
   useProfile,
   useUpdateProfile,
@@ -32,6 +32,10 @@ export {
   useApproveVoidRequest,
   useRejectVoidRequest,
   useAdminCashRegisters,
+  useAdminSpaces,
+  useCreateSpace,
+  useUpdateSpace,
+  useDeleteSpace,
 } from "./useAdminData"
 export {
   useSearchUsers,

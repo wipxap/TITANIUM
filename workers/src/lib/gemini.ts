@@ -2,12 +2,18 @@
  * Gemini AI Service for Routine Generation
  */
 
+interface MachineInfo {
+  name: string
+  muscleGroup: string
+  difficulty?: string
+}
+
 interface GenerateRoutineInput {
   goals: string
   experienceLevel: "beginner" | "intermediate" | "advanced"
   daysPerWeek: number
   sessionDuration: number // minutes
-  equipment: string[] // available machine names
+  equipment: MachineInfo[]
   healthConditions?: string[]
   focusAreas?: string[]
 }
@@ -71,8 +77,8 @@ PERFIL DEL USUARIO:
 - Días disponibles por semana: ${daysPerWeek}
 - Duración por sesión: ${sessionDuration} minutos
 
-EQUIPAMIENTO DISPONIBLE:
-${equipment.map((e) => `- ${e}`).join("\n")}
+EQUIPAMIENTO DISPONIBLE (nombre | grupo muscular | dificultad):
+${equipment.map((e) => `- ${e.name} | ${e.muscleGroup} | ${e.difficulty || "sin clasificar"}`).join("\n")}
 `
 
   if (healthConditions && healthConditions.length > 0) {

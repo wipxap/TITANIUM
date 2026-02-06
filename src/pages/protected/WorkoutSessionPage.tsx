@@ -3,6 +3,8 @@ import { useSearchParams, useNavigate } from "react-router-dom"
 import { PremiumButton } from "@/components/common"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Dialog,
   DialogContent,
@@ -18,6 +20,11 @@ import {
   Trophy,
   Timer,
   Dumbbell,
+  SkipForward,
+  RotateCcw,
+  Gauge,
+  TrendingUp,
+  Activity,
 } from "lucide-react"
 import { useRoutines, useLogProgress } from "@/hooks"
 import { cn } from "@/lib/utils"
@@ -30,6 +37,13 @@ function parseRestSeconds(rest?: string): number {
   if (!rest) return 60
   const match = rest.match(/(\d+)/)
   return match ? parseInt(match[1]) : 60
+}
+
+const CARDIO_KEYWORDS = ["trotadora", "elíptica", "eliptica", "escalera", "bicicleta", "cinta", "remo", "cardio", "correr", "caminar"]
+
+function isCardioExercise(name: string): boolean {
+  const lower = name.toLowerCase()
+  return CARDIO_KEYWORDS.some((kw) => lower.includes(kw))
 }
 
 function formatTime(seconds: number) {
@@ -58,12 +72,33 @@ export function WorkoutSessionPage() {
   const [restTime, setRestTime] = useState(0)
   const [elapsed, setElapsed] = useState(0)
   const [completedExercises, setCompletedExercises] = useState<Set<number>>(new Set())
+  const [skippedExercises, setSkippedExercises] = useState<Set<number>>(new Set())
   const [showExitDialog, setShowExitDialog] = useState(false)
   const [finished, setFinished] = useState(false)
+  const [showPending, setShowPending] = useState(false)
+  const [cardioDuration, setCardioDuration] = useState(0)
+  const [cardioSpeed, setCardioSpeed] = useState(0)
+  const [cardioIncline, setCardioIncline] = useState(0)
   const startTimeRef = useRef(Date.now())
 
   const exercise = exercises[currentExIdx]
+  const isCardio = exercise ? isCardioExercise(exercise.name) : false
   const totalExercises = exercises.length
+
+  // Find next available (not completed and not skipped) exercise from a given index
+  const findNextAvailable = useCallback(
+    (fromIdx: number, completed: Set<number>, skipped: Set<number>) => {
+      for (let i = fromIdx; i < totalExercises; i++) {
+        if (!completed.has(i) && !skipped.has(i)) return i
+      }
+      // Wrap around from beginning
+      for (let i = 0; i < fromIdx; i++) {
+        if (!completed.has(i) && !skipped.has(i)) return i
+      }
+      return -1
+    },
+    [totalExercises]
+  )
 
   // Elapsed timer
   useEffect(() => {
@@ -90,44 +125,105 @@ export function WorkoutSessionPage() {
   }, [resting, restTime])
 
   const logExercise = useCallback(
-    (ex: typeof exercise) => {
+    (ex: typeof exercise, cardio?: { duration: number; speed: number; incline: number }) => {
       if (!ex) return
-      logProgress.mutate({
-        routineId: activeRoutine?.id,
-        exerciseName: ex.name,
-        sets: ex.sets,
-        reps: parseInt(ex.reps.split("-")[0]) || 10,
-        weightKg: ex.weight ? parseFloat(ex.weight) : undefined,
-      })
+      if (cardio) {
+        logProgress.mutate({
+          routineId: activeRoutine?.id,
+          exerciseName: ex.name,
+          sets: 1,
+          reps: 1,
+          durationSeconds: cardio.duration * 60,
+          speed: cardio.speed || undefined,
+          incline: cardio.incline || undefined,
+        })
+      } else {
+        logProgress.mutate({
+          routineId: activeRoutine?.id,
+          exerciseName: ex.name,
+          sets: ex.sets,
+          reps: parseInt(ex.reps.split("-")[0]) || 10,
+          weightKg: ex.weight ? parseFloat(ex.weight) : undefined,
+        })
+      }
     },
     [activeRoutine, logProgress]
   )
+
+  const resetCardioInputs = () => {
+    setCardioDuration(0)
+    setCardioSpeed(0)
+    setCardioIncline(0)
+  }
+
+  const advanceToNext = (newCompleted: Set<number>) => {
+    const next = findNextAvailable(currentExIdx + 1, newCompleted, skippedExercises)
+    if (next === -1) {
+      if (skippedExercises.size > 0) {
+        setShowPending(true)
+      } else {
+        setFinished(true)
+      }
+    } else {
+      setCurrentExIdx(next)
+      setCurrentSet(1)
+      resetCardioInputs()
+    }
+  }
+
+  const completeCardio = () => {
+    if (!exercise || cardioDuration <= 0) return
+    const newCompleted = new Set(completedExercises)
+    newCompleted.add(currentExIdx)
+    setCompletedExercises(newCompleted)
+    logExercise(exercise, { duration: cardioDuration, speed: cardioSpeed, incline: cardioIncline })
+    advanceToNext(newCompleted)
+  }
 
   const completeSet = () => {
     if (!exercise) return
 
     if (currentSet < exercise.sets) {
-      // More sets remaining
       setCurrentSet(currentSet + 1)
       const restSec = parseRestSeconds(exercise.rest)
       setRestTime(restSec)
       setResting(true)
     } else {
-      // All sets done for this exercise
       const newCompleted = new Set(completedExercises)
       newCompleted.add(currentExIdx)
       setCompletedExercises(newCompleted)
       logExercise(exercise)
-
-      if (currentExIdx < totalExercises - 1) {
-        // Move to next exercise
-        setCurrentExIdx(currentExIdx + 1)
-        setCurrentSet(1)
-      } else {
-        // Workout complete
-        setFinished(true)
-      }
+      advanceToNext(newCompleted)
     }
+  }
+
+  const handleSkipExercise = (idx: number) => {
+    const newSkipped = new Set(skippedExercises)
+    newSkipped.add(idx)
+    setSkippedExercises(newSkipped)
+    setResting(false)
+    setRestTime(0)
+    resetCardioInputs()
+
+    const next = findNextAvailable(idx + 1, completedExercises, newSkipped)
+    if (next === -1) {
+      setShowPending(true)
+    } else {
+      setCurrentExIdx(next)
+      setCurrentSet(1)
+      resetCardioInputs()
+    }
+  }
+
+  const returnToExercise = (idx: number) => {
+    const newSkipped = new Set(skippedExercises)
+    newSkipped.delete(idx)
+    setSkippedExercises(newSkipped)
+    setCurrentExIdx(idx)
+    setCurrentSet(1)
+    setShowPending(false)
+    setResting(false)
+    resetCardioInputs()
   }
 
   const goToExercise = (idx: number) => {
@@ -135,6 +231,7 @@ export function WorkoutSessionPage() {
       setCurrentExIdx(idx)
       setCurrentSet(1)
       setResting(false)
+      resetCardioInputs()
     }
   }
 
@@ -156,8 +253,60 @@ export function WorkoutSessionPage() {
     return null
   }
 
+  // Pending skipped exercises screen
+  if (showPending && !finished) {
+    const skippedList = Array.from(skippedExercises).map((i) => ({ idx: i, ...exercises[i] }))
+    return (
+      <div className="min-h-screen bg-background flex flex-col p-6">
+        <div className="flex items-center justify-between mb-6">
+          <button onClick={handleExit} className="w-[44px] h-[44px] flex items-center justify-center">
+            <X className="h-6 w-6" />
+          </button>
+          <p className="text-sm font-medium">{formatTime(elapsed)}</p>
+          <div className="w-[44px]" />
+        </div>
+
+        <div className="flex-1 space-y-6">
+          <div className="text-center">
+            <SkipForward className="h-10 w-10 text-amber-400 mx-auto mb-3" />
+            <h2 className="text-xl font-bold">Ejercicios Pendientes</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {skippedList.length} ejercicio{skippedList.length !== 1 ? "s" : ""} saltado{skippedList.length !== 1 ? "s" : ""} por máquina ocupada
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {skippedList.map((ex) => (
+              <div key={ex.idx} className="p-4 rounded-lg border border-amber-700/30 bg-amber-900/10 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium text-sm truncate">{ex.name}</p>
+                  <p className="text-xs text-muted-foreground">{ex.sets} series x {ex.reps}</p>
+                </div>
+                <PremiumButton
+                  variant="outline"
+                  size="sm"
+                  className="border-amber-600 text-amber-400 hover:bg-amber-900/20 flex-shrink-0"
+                  onClick={() => returnToExercise(ex.idx)}
+                >
+                  <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                  Volver
+                </PremiumButton>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <PremiumButton onClick={() => setFinished(true)} className="w-full h-14 mt-6">
+          Finalizar sin completar
+        </PremiumButton>
+      </div>
+    )
+  }
+
   // Finished screen
   if (finished) {
+    const completedCount = completedExercises.size
+    const skippedCount = skippedExercises.size
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
         <div className="bg-gradient-to-br from-primary/20 to-primary/5 rounded-full w-28 h-28 flex items-center justify-center mb-6 glow-red">
@@ -166,22 +315,28 @@ export function WorkoutSessionPage() {
         <h1 className="text-3xl font-bold mb-2">Entrenamiento Completo</h1>
         <p className="text-muted-foreground mb-8">Excelente trabajo</p>
 
-        <div className="grid grid-cols-3 gap-4 w-full max-w-sm mb-8">
+        <div className="grid grid-cols-3 gap-4 w-full max-w-sm mb-4">
           <div className="text-center">
             <p className="text-2xl font-bold text-primary">{formatTime(elapsed)}</p>
             <p className="text-xs text-muted-foreground">Tiempo</p>
           </div>
           <div className="text-center">
-            <p className="text-2xl font-bold text-primary">{totalExercises}</p>
+            <p className="text-2xl font-bold text-primary">{completedCount}</p>
             <p className="text-xs text-muted-foreground">Ejercicios</p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-primary">
-              {exercises.reduce((sum, e) => sum + e.sets, 0)}
+              {exercises.filter((_, i) => completedExercises.has(i)).reduce((sum, e) => sum + e.sets, 0)}
             </p>
             <p className="text-xs text-muted-foreground">Series</p>
           </div>
         </div>
+
+        {skippedCount > 0 && (
+          <p className="text-sm text-amber-400 mb-6">
+            Ejercicios saltados: {skippedCount} de {totalExercises}
+          </p>
+        )}
 
         <PremiumButton onClick={() => navigate("/my/routine")} className="w-full max-w-sm h-14">
           Volver a Mi Rutina
@@ -210,12 +365,11 @@ export function WorkoutSessionPage() {
       </div>
 
       {/* Progress bar */}
-      <Progress value={((currentExIdx + (currentSet / (exercise?.sets || 1))) / totalExercises) * 100} className="h-1 rounded-none" />
+      <Progress value={((completedExercises.size + skippedExercises.size) / totalExercises) * 100} className="h-1 rounded-none" />
 
       {/* Content */}
       <div className="flex-1 flex flex-col items-center justify-center p-6">
         {resting ? (
-          // Rest timer
           <div className="text-center space-y-6 w-full max-w-sm">
             <Timer className="h-12 w-12 text-muted-foreground mx-auto" />
             <p className="text-lg text-muted-foreground">Descanso</p>
@@ -226,20 +380,79 @@ export function WorkoutSessionPage() {
             </PremiumButton>
           </div>
         ) : exercise ? (
-          // Exercise
-          <div className="text-center space-y-6 w-full max-w-sm">
-            <Dumbbell className="h-12 w-12 text-primary mx-auto" />
+          <div className="text-center space-y-5 w-full max-w-sm">
+            {isCardio ? (
+              <Activity className="h-12 w-12 text-green-500 mx-auto" />
+            ) : (
+              <Dumbbell className="h-12 w-12 text-primary mx-auto" />
+            )}
             <div>
               <h2 className="text-2xl font-bold">{exercise.name}</h2>
-              <div className="flex justify-center gap-2 mt-3">
-                <Badge variant="secondary">{exercise.sets} series × {exercise.reps}</Badge>
-                {exercise.weight && <Badge variant="secondary">{exercise.weight}</Badge>}
-              </div>
+              {isCardio ? (
+                <Badge variant="secondary" className="mt-3">Cardio</Badge>
+              ) : (
+                <div className="flex justify-center gap-2 mt-3">
+                  <Badge variant="secondary">{exercise.sets} series x {exercise.reps}</Badge>
+                  {exercise.weight && <Badge variant="secondary">{exercise.weight}</Badge>}
+                </div>
+              )}
             </div>
 
-            <p className="text-lg">
-              Serie <span className="text-primary font-bold">{currentSet}</span> de {exercise.sets}
-            </p>
+            {isCardio ? (
+              <div className="space-y-4 text-left">
+                <div className="space-y-2">
+                  <Label htmlFor="duration" className="flex items-center gap-2 text-sm">
+                    <Timer className="h-4 w-4 text-muted-foreground" />
+                    Duracion (minutos)
+                  </Label>
+                  <Input
+                    id="duration"
+                    type="number"
+                    min={1}
+                    placeholder="30"
+                    value={cardioDuration || ""}
+                    onChange={(e) => setCardioDuration(Number(e.target.value))}
+                    className="h-12 text-lg text-center"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="speed" className="flex items-center gap-2 text-sm">
+                    <Gauge className="h-4 w-4 text-muted-foreground" />
+                    Velocidad (km/h)
+                  </Label>
+                  <Input
+                    id="speed"
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    placeholder="8.0"
+                    value={cardioSpeed || ""}
+                    onChange={(e) => setCardioSpeed(Number(e.target.value))}
+                    className="h-12 text-lg text-center"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="incline" className="flex items-center gap-2 text-sm">
+                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                    Inclinacion (%)
+                  </Label>
+                  <Input
+                    id="incline"
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    placeholder="2.0"
+                    value={cardioIncline || ""}
+                    onChange={(e) => setCardioIncline(Number(e.target.value))}
+                    className="h-12 text-lg text-center"
+                  />
+                </div>
+              </div>
+            ) : (
+              <p className="text-lg">
+                Serie <span className="text-primary font-bold">{currentSet}</span> de {exercise.sets}
+              </p>
+            )}
 
             {exercise.notes && (
               <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
@@ -247,9 +460,27 @@ export function WorkoutSessionPage() {
               </p>
             )}
 
-            <PremiumButton onClick={completeSet} className="w-full h-14 text-lg">
-              {currentSet < exercise.sets ? "COMPLETAR SERIE" : "COMPLETAR EJERCICIO"}
-            </PremiumButton>
+            {isCardio ? (
+              <PremiumButton
+                onClick={completeCardio}
+                disabled={cardioDuration <= 0}
+                className="w-full h-14 text-lg"
+              >
+                COMPLETAR CARDIO
+              </PremiumButton>
+            ) : (
+              <PremiumButton onClick={completeSet} className="w-full h-14 text-lg">
+                {currentSet < exercise.sets ? "COMPLETAR SERIE" : "COMPLETAR EJERCICIO"}
+              </PremiumButton>
+            )}
+
+            <button
+              onClick={() => handleSkipExercise(currentExIdx)}
+              className="w-full h-12 flex items-center justify-center gap-2 border border-amber-600/50 text-amber-400 rounded-lg hover:bg-amber-900/20 transition-colors text-sm font-medium"
+            >
+              <SkipForward className="h-4 w-4" />
+              Máquina Ocupada - Saltar
+            </button>
           </div>
         ) : null}
       </div>
@@ -275,9 +506,11 @@ export function WorkoutSessionPage() {
                 "w-2.5 h-2.5 rounded-full transition-all",
                 completedExercises.has(i)
                   ? "bg-primary"
-                  : i === currentExIdx
-                    ? "bg-primary/50 scale-125"
-                    : "bg-muted"
+                  : skippedExercises.has(i)
+                    ? "bg-amber-500"
+                    : i === currentExIdx
+                      ? "bg-primary/50 scale-125"
+                      : "bg-muted"
               )}
             />
           ))}

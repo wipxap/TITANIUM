@@ -48,3 +48,11 @@ export function useMachinesByGroup(group: string) {
     enabled: !!group,
   })
 }
+
+export function useSpaces() {
+  return useQuery({
+    queryKey: ["public", "spaces"],
+    queryFn: publicApi.getSpaces,
+    staleTime: 1000 * 60 * 10,
+  })
+}

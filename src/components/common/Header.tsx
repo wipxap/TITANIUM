@@ -12,7 +12,7 @@ interface HeaderProps {
 const navLinks = [
   { label: "Inicio", to: "/" },
   { label: "Planes", to: "/planes" },
-  { label: "Máquinas", to: "/maquinas" },
+  { label: "Espacios", to: "/espacios" },
   { label: "Ubicación", to: "/ubicacion" },
   { label: "Contacto", to: "/contacto" },
 ]

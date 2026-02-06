@@ -4,8 +4,9 @@ import { z } from "zod"
 import { eq, desc, like, or, sql, and, gte, lte, isNull } from "drizzle-orm"
 import type { Env, Variables } from "../types"
 import { requireAuth, requireRole } from "../middleware/auth"
-import { users, profiles, subscriptions, plans, machines, checkins, voidRequests, posSales, cashRegisters } from "../db/schema"
+import { users, profiles, subscriptions, plans, machines, checkins, voidRequests, posSales, cashRegisters, gymSpaces, renewalDiscounts } from "../db/schema"
 import { formatRut } from "../lib/auth"
+import { getBirthdayUsers } from "../lib/birthdays"
 
 const adminRoutes = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -176,6 +177,8 @@ const createMachineSchema = z.object({
   videoUrl: z.string().url().optional(),
   imageUrl: z.string().url().optional(),
   quantity: z.number().int().positive().default(1),
+  floor: z.number().int().positive().optional(),
+  difficulty: z.enum(["beginner", "intermediate", "advanced"]).optional(),
 })
 
 adminRoutes.post("/machines", zValidator("json", createMachineSchema), async (c) => {
@@ -622,6 +625,184 @@ adminRoutes.get("/cash-registers", async (c) => {
       totalPages: Math.ceil(Number(totalResult.count) / limit),
     },
   })
+})
+
+// ============ SPACES ============
+
+// GET /admin/spaces - List all spaces (including inactive)
+adminRoutes.get("/spaces", async (c) => {
+  const db = c.get("db")
+
+  const spacesList = await db
+    .select()
+    .from(gymSpaces)
+    .orderBy(gymSpaces.sortOrder)
+
+  return c.json({ spaces: spacesList })
+})
+
+// POST /admin/spaces - Create space
+const createSpaceSchema = z.object({
+  name: z.string().min(2),
+  subtitle: z.string().optional(),
+  description: z.string().optional(),
+  floorNumber: z.number().int().min(1).max(10),
+  imageUrl: z.string().url().optional(),
+  features: z.array(z.string()).default([]),
+  sortOrder: z.number().int().default(0),
+})
+
+adminRoutes.post("/spaces", zValidator("json", createSpaceSchema), async (c) => {
+  const db = c.get("db")
+  const data = c.req.valid("json")
+
+  const [space] = await db
+    .insert(gymSpaces)
+    .values(data)
+    .returning()
+
+  return c.json({ space }, 201)
+})
+
+// PUT /admin/spaces/:id - Update space
+adminRoutes.put("/spaces/:id", zValidator("json", createSpaceSchema.partial()), async (c) => {
+  const db = c.get("db")
+  const { id } = c.req.param()
+  const data = c.req.valid("json")
+
+  const [space] = await db
+    .update(gymSpaces)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(gymSpaces.id, id))
+    .returning()
+
+  if (!space) {
+    return c.json({ error: "Espacio no encontrado" }, 404)
+  }
+
+  return c.json({ space })
+})
+
+// DELETE /admin/spaces/:id - Soft delete (isActive = false)
+adminRoutes.delete("/spaces/:id", async (c) => {
+  const db = c.get("db")
+  const { id } = c.req.param()
+  const hard = c.req.query("hard") === "true"
+
+  if (hard) {
+    const [deleted] = await db
+      .delete(gymSpaces)
+      .where(eq(gymSpaces.id, id))
+      .returning()
+
+    if (!deleted) {
+      return c.json({ error: "Espacio no encontrado" }, 404)
+    }
+
+    return c.json({ success: true })
+  }
+
+  // Soft delete
+  const [space] = await db
+    .update(gymSpaces)
+    .set({ isActive: false, updatedAt: new Date() })
+    .where(eq(gymSpaces.id, id))
+    .returning()
+
+  if (!space) {
+    return c.json({ error: "Espacio no encontrado" }, 404)
+  }
+
+  return c.json({ success: true, space })
+})
+
+// ============ BIRTHDAYS ============
+
+// GET /admin/birthdays?range=today|week
+adminRoutes.get("/birthdays", async (c) => {
+  const db = c.get("db")
+  const range = (c.req.query("range") || "today") as "today" | "week"
+  const result = await getBirthdayUsers(db, range)
+  return c.json(result)
+})
+
+// ============ RENEWAL DISCOUNTS ============
+
+// GET /admin/renewal-discounts
+adminRoutes.get("/renewal-discounts", async (c) => {
+  const db = c.get("db")
+
+  const discounts = await db
+    .select()
+    .from(renewalDiscounts)
+    .orderBy(desc(renewalDiscounts.createdAt))
+
+  return c.json({ discounts })
+})
+
+// POST /admin/renewal-discounts
+const createRenewalDiscountSchema = z.object({
+  name: z.string().min(2),
+  discountPercent: z.number().int().min(1).max(100),
+  conditionType: z.enum(["expiring_soon", "expired"]),
+  daysBeforeExpiry: z.number().int().min(1).optional(),
+  daysAfterExpiry: z.number().int().min(1).optional(),
+  isActive: z.boolean().default(true),
+})
+
+adminRoutes.post("/renewal-discounts", zValidator("json", createRenewalDiscountSchema), async (c) => {
+  const db = c.get("db")
+  const data = c.req.valid("json")
+
+  if (data.conditionType === "expiring_soon" && !data.daysBeforeExpiry) {
+    return c.json({ error: "daysBeforeExpiry requerido para condición expiring_soon" }, 400)
+  }
+  if (data.conditionType === "expired" && !data.daysAfterExpiry) {
+    return c.json({ error: "daysAfterExpiry requerido para condición expired" }, 400)
+  }
+
+  const [discount] = await db
+    .insert(renewalDiscounts)
+    .values(data)
+    .returning()
+
+  return c.json({ discount }, 201)
+})
+
+// PUT /admin/renewal-discounts/:id
+adminRoutes.put("/renewal-discounts/:id", zValidator("json", createRenewalDiscountSchema.partial()), async (c) => {
+  const db = c.get("db")
+  const { id } = c.req.param()
+  const data = c.req.valid("json")
+
+  const [discount] = await db
+    .update(renewalDiscounts)
+    .set(data)
+    .where(eq(renewalDiscounts.id, id))
+    .returning()
+
+  if (!discount) {
+    return c.json({ error: "Descuento no encontrado" }, 404)
+  }
+
+  return c.json({ discount })
+})
+
+// DELETE /admin/renewal-discounts/:id
+adminRoutes.delete("/renewal-discounts/:id", async (c) => {
+  const db = c.get("db")
+  const { id } = c.req.param()
+
+  const [deleted] = await db
+    .delete(renewalDiscounts)
+    .where(eq(renewalDiscounts.id, id))
+    .returning()
+
+  if (!deleted) {
+    return c.json({ error: "Descuento no encontrado" }, 404)
+  }
+
+  return c.json({ success: true })
 })
 
 export default adminRoutes

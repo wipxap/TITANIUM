@@ -229,6 +229,9 @@ const progressSchema = z.object({
   sets: z.number().positive(),
   reps: z.number().positive(),
   weightKg: z.number().positive().optional(),
+  durationSeconds: z.number().int().positive().optional(),
+  speed: z.number().positive().optional(),
+  incline: z.number().optional(),
   notes: z.string().optional(),
 })
 
@@ -256,6 +259,9 @@ userRoutes.post("/progress", zValidator("json", progressSchema), async (c) => {
       sets: data.sets,
       reps: data.reps,
       weightKg: data.weightKg != null ? String(data.weightKg) : null,
+      durationSeconds: data.durationSeconds ?? null,
+      speed: data.speed != null ? String(data.speed) : null,
+      incline: data.incline != null ? String(data.incline) : null,
       notes: data.notes ?? null,
     })
     .returning()

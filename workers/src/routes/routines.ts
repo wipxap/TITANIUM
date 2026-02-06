@@ -1,10 +1,10 @@
 import { Hono } from "hono"
 import { zValidator } from "@hono/zod-validator"
 import { z } from "zod"
-import { eq } from "drizzle-orm"
+import { eq, and, inArray, or, isNull, gte } from "drizzle-orm"
 import type { Env, Variables } from "../types"
 import { requireAuth } from "../middleware/auth"
-import { profiles, machines, userRoutines } from "../db/schema"
+import { profiles, machines, userRoutines, subscriptions } from "../db/schema"
 import { generateRoutineWithGemini, generateFallbackRoutine } from "../lib/gemini"
 
 const routinesRoutes = new Hono<{ Bindings: Env; Variables: Variables }>()
@@ -38,13 +38,58 @@ routinesRoutes.post("/generate", zValidator("json", generateRoutineSchema), asyn
     return c.json({ error: "Perfil no encontrado. Complete su perfil primero." }, 404)
   }
 
-  // Get available machines
-  const machinesList = await db
-    .select({ name: machines.name })
-    .from(machines)
-    .where(eq(machines.isActive, true))
+  // Verify active subscription (using America/Santiago timezone)
+  const nowSantiago = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Santiago" }))
+  const [activeSub] = await db
+    .select({ id: subscriptions.id })
+    .from(subscriptions)
+    .where(
+      and(
+        eq(subscriptions.profileId, profile.id),
+        eq(subscriptions.status, "active"),
+        gte(subscriptions.endDate, nowSantiago)
+      )
+    )
+    .limit(1)
 
-  const equipmentNames = machinesList.map((m) => m.name)
+  if (!activeSub) {
+    return c.json(
+      { error: "Membresía inactiva. Renueva tu membresía para generar nuevas rutinas." },
+      403
+    )
+  }
+
+  // Get available machines filtered by user experience level
+  type Difficulty = "beginner" | "intermediate" | "advanced"
+  const difficultyMap: Record<Difficulty, Difficulty[]> = {
+    beginner: ["beginner"],
+    intermediate: ["beginner", "intermediate"],
+    advanced: ["beginner", "intermediate", "advanced"],
+  }
+  const allowedDifficulties = difficultyMap[data.experienceLevel] || (["beginner", "intermediate", "advanced"] as Difficulty[])
+
+  const machinesList = await db
+    .select({
+      name: machines.name,
+      muscleGroup: machines.muscleGroup,
+      difficulty: machines.difficulty,
+    })
+    .from(machines)
+    .where(
+      and(
+        eq(machines.isActive, true),
+        or(
+          inArray(machines.difficulty, allowedDifficulties),
+          isNull(machines.difficulty)
+        )
+      )
+    )
+
+  const equipment = machinesList.map((m) => ({
+    name: m.name,
+    muscleGroup: m.muscleGroup,
+    difficulty: m.difficulty ?? undefined,
+  }))
 
   // Get health conditions from profile
   const healthConditions = profile.healthData?.conditions || []
@@ -63,7 +108,7 @@ routinesRoutes.post("/generate", zValidator("json", generateRoutineSchema), asyn
         experienceLevel: data.experienceLevel,
         daysPerWeek: data.daysPerWeek,
         sessionDuration: data.sessionDuration,
-        equipment: equipmentNames,
+        equipment,
         healthConditions,
         focusAreas: data.focusAreas,
       })

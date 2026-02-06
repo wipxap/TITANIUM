@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { adminApi } from "@/lib/api"
-import type { Machine, Plan, VoidRequestStatus } from "@/lib/api"
+import type { Machine, Plan, Space, VoidRequestStatus } from "@/lib/api"
 
 export function useAdminUsers(params?: { search?: string; page?: number }) {
   return useQuery({
@@ -142,6 +142,64 @@ export function useDeletePlan() {
     },
     onError: (error) => {
       toast.error(error.message || "Error al eliminar plan")
+    },
+  })
+}
+
+// ============ SPACES HOOKS ============
+
+export function useAdminSpaces() {
+  return useQuery({
+    queryKey: ["admin", "spaces"],
+    queryFn: adminApi.getSpaces,
+  })
+}
+
+export function useCreateSpace() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: Partial<Space>) => adminApi.createSpace(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "spaces"] })
+      queryClient.invalidateQueries({ queryKey: ["public", "spaces"] })
+      toast.success("Espacio creado")
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al crear espacio")
+    },
+  })
+}
+
+export function useUpdateSpace() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<Space> }) =>
+      adminApi.updateSpace(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "spaces"] })
+      queryClient.invalidateQueries({ queryKey: ["public", "spaces"] })
+      toast.success("Espacio actualizado")
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al actualizar espacio")
+    },
+  })
+}
+
+export function useDeleteSpace() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => adminApi.deleteSpace(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "spaces"] })
+      queryClient.invalidateQueries({ queryKey: ["public", "spaces"] })
+      toast.success("Espacio eliminado")
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al eliminar espacio")
     },
   })
 }

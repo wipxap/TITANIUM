@@ -20,6 +20,8 @@ import {
   Trash2,
   CheckCircle2,
   ChevronRight,
+  Info,
+  Droplets,
 } from "lucide-react"
 import { useState, useMemo } from "react"
 import {
@@ -29,6 +31,7 @@ import {
   useProgress,
   useActivateRoutine,
   useDeleteRoutine,
+  useSubscription,
 } from "@/hooks"
 
 const DAY_NAMES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
@@ -118,6 +121,8 @@ export function MyRoutinePage() {
   const { data: progressData, isError: progressError } = useProgress()
   const activateRoutine = useActivateRoutine()
   const deleteRoutine = useDeleteRoutine()
+  const { data: subData, isLoading: subLoading } = useSubscription()
+  const isMembershipInactive = !subLoading && !subData?.subscription
 
   const routines = data?.routines || []
   const activeRoutine = routines.find((r) => r.isActive) || routines[0]
@@ -250,6 +255,16 @@ export function MyRoutinePage() {
           </button>
         </div>
 
+        {/* Membership Info Banner */}
+        {isMembershipInactive && (
+          <div className="flex items-center gap-2 p-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10">
+            <Info className="h-4 w-4 text-amber-400 flex-shrink-0" />
+            <p className="text-xs text-amber-300">
+              Membresía inactiva. Puedes ver tus rutinas pero no generar nuevas.
+            </p>
+          </div>
+        )}
+
         {/* Day Selector */}
         <DaySelector
           routineDays={routineDays}
@@ -289,6 +304,12 @@ export function MyRoutinePage() {
                   onToggle={() => toggleCompleted(e)}
                 />
               ))}
+            </div>
+
+            {/* Hydration tip */}
+            <div className="flex items-center gap-2 px-3 py-2">
+              <Droplets className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
+              <p className="text-xs text-gray-500">Mantén una buena hidratación durante tu entrenamiento</p>
             </div>
 
             {/* Actions */}

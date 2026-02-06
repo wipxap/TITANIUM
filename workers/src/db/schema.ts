@@ -36,6 +36,11 @@ export const muscleGroupEnum = pgEnum("muscle_group", [
   "cardio",
   "full_body",
 ])
+export const machineDifficultyEnum = pgEnum("machine_difficulty", [
+  "beginner",
+  "intermediate",
+  "advanced",
+])
 
 // POS Enums
 export const posSaleStatusEnum = pgEnum("pos_sale_status", [
@@ -215,6 +220,8 @@ export const machines = pgTable("machines", {
   videoUrl: text("video_url"),
   imageUrl: text("image_url"),
   quantity: integer("quantity").notNull().default(1),
+  floor: integer("floor").default(1),
+  difficulty: machineDifficultyEnum("difficulty").default("beginner"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -362,8 +369,40 @@ export const progressLogs = pgTable("progress_logs", {
   sets: integer("sets").notNull(),
   reps: integer("reps").notNull(),
   weightKg: decimal("weight_kg", { precision: 5, scale: 2 }),
+  durationSeconds: integer("duration_seconds"),
+  speed: decimal("speed", { precision: 5, scale: 2 }),
+  incline: decimal("incline", { precision: 5, scale: 2 }),
   notes: text("notes"),
   completedAt: timestamp("completed_at").notNull().defaultNow(),
+})
+
+// ============ RENEWAL DISCOUNTS ============
+
+export const renewalDiscounts = pgTable("renewal_discounts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 100 }).notNull(),
+  discountPercent: integer("discount_percent").notNull(),
+  conditionType: varchar("condition_type", { length: 30 }).notNull().default("expiring_soon"),
+  daysBeforeExpiry: integer("days_before_expiry"),
+  daysAfterExpiry: integer("days_after_expiry"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+})
+
+// ============ GYM SPACES ============
+
+export const gymSpaces = pgTable("gym_spaces", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 100 }).notNull(),
+  subtitle: varchar("subtitle", { length: 200 }),
+  description: text("description"),
+  floorNumber: integer("floor_number").notNull(),
+  imageUrl: text("image_url"),
+  features: jsonb("features").$type<string[]>().notNull().default([]),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
 
 // ============ RELATIONS ============
